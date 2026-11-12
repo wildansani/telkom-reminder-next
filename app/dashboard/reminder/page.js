@@ -9,10 +9,12 @@ export default function ReminderPage() {
   const [clientInput, setClientInput] = useState('');
   const [productInput, setProductInput] = useState('');
   const [daysInput, setDaysInput] = useState('');
+  const [picInput, setPicInput] = useState('');
   
   // State Filter & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [filterPic, setFilterPic] = useState('ALL');
 
   // State Modal Edit
   const [editingOffer, setEditingOffer] = useState(null);
@@ -35,6 +37,7 @@ export default function ReminderPage() {
     } else {
       const parsedUser = JSON.parse(savedUser);
       setUser(parsedUser);
+      setPicInput(parsedUser.nama_lengkap || '');
       fetchOffers(parsedUser.id);
     }
 
@@ -51,18 +54,24 @@ export default function ReminderPage() {
     }
   };
 
-  // Sinkronisasi otomatis format Telegram ke textarea saat data/tag berubah
+  // Sinkronisasi otomatis format Telegram saat data, tag, atau filter PIC berubah
   useEffect(() => {
     if (!user) return;
-    const active = offers.filter((o) => !o.status_prospek || o.status_prospek === 'IN_PROGRESS');
+    const activeAll = offers.filter((o) => !o.status_prospek || o.status_prospek === 'IN_PROGRESS');
+    const active = filterPic === 'ALL'
+      ? activeAll
+      : activeAll.filter((o) => (o.pic_am || user.nama_lengkap).toLowerCase().includes(filterPic.toLowerCase()));
+
     const urgent = active.filter((o) => o.aging_hari >= 21);
     const followUp = active.filter((o) => o.aging_hari >= 14 && o.aging_hari <= 20);
     const monitoring = active.filter((o) => o.aging_hari >= 7 && o.aging_hari <= 13);
 
-    const generated = `REMINDER STATUS PENAWARAN\nAM: ${user.nama_lengkap}\nTotal Proyek Aktif: ${active.length} Proyek\n\nHalo @${user.telegram_user}\n\nMohon perhatian HOTD terkait:\n${targetTags}\n\nBerikut kami sampaikan daftar penawaran yang WAJIB SEGERA DI FOLLOW UP agar target deal tercapai.\n\nKeterangan Prioritas:\nUrgent : ≥21 hari\nFollow Up : 14–20 hari\nMonitoring : 7–13 hari\n\n${urgent.length > 0 ? `URGENT (${urgent.length} Proyek)\n` + urgent.map((item, i) => `${i + 1}. ${item.nama_klien} - ${item.layanan} (${item.aging_hari} Hari)`).join('\n') + '\n\n' : ''}${followUp.length > 0 ? `FOLLOW UP (${followUp.length} Proyek)\n` + followUp.map((item, i) => `${i + 1}. ${item.nama_klien} - ${item.layanan} (${item.aging_hari} Hari)`).join('\n') + '\n\n' : ''}${monitoring.length > 0 ? `MONITORING (${monitoring.length} Proyek)\n` + monitoring.map((item, i) => `${i + 1}. ${item.nama_klien} - ${item.layanan} (${item.aging_hari} Hari)`).join('\n') + '\n\n' : ''}Mohon segera update progres dan hasil tindak lanjutnya.\nTerima kasih dan tetap semangat!`;
+    const picHeader = filterPic !== 'ALL' ? `\n=== PIC: ${filterPic.toUpperCase()} ===\n` : '';
+
+    const generated = `REMINDER STATUS PENAWARAN\nAM: ${user.nama_lengkap}\nTotal Proyek Aktif: ${active.length} Proyek\n\nHalo @${user.telegram_user}\n\nMohon perhatian HOTD terkait:\n${targetTags}\n${picHeader}\nBerikut kami sampaikan daftar penawaran yang WAJIB SEGERA DI FOLLOW UP agar target deal tercapai.\n\nKeterangan Prioritas:\nUrgent : ≥21 hari\nFollow Up : 14–20 hari\nMonitoring : 7–13 hari\n\n${urgent.length > 0 ? `URGENT (${urgent.length} Proyek)\n` + urgent.map((item, i) => `${i + 1}. ${item.nama_klien} - ${item.layanan} (${item.aging_hari} Hari)`).join('\n') + '\n\n' : ''}${followUp.length > 0 ? `FOLLOW UP (${followUp.length} Proyek)\n` + followUp.map((item, i) => `${i + 1}. ${item.nama_klien} - ${item.layanan} (${item.aging_hari} Hari)`).join('\n') + '\n\n' : ''}${monitoring.length > 0 ? `MONITORING (${monitoring.length} Proyek)\n` + monitoring.map((item, i) => `${i + 1}. ${item.nama_klien} - ${item.layanan} (${item.aging_hari} Hari)`).join('\n') + '\n\n' : ''}Mohon segera update progres dan hasil tindak lanjutnya.\nTerima kasih dan tetap semangat!`;
 
     setEditableTelegramText(generated);
-  }, [offers, targetTags, user]);
+  }, [offers, targetTags, filterPic, user]);
 
   const handleAddOffer = async (e) => {
     e.preventDefault();
@@ -76,6 +85,7 @@ export default function ReminderPage() {
         namaKlien: clientInput,
         layanan: productInput,
         agingHari: parseInt(daysInput),
+        picAm: picInput || user.nama_lengkap,
       }),
     });
 
@@ -100,6 +110,7 @@ export default function ReminderPage() {
         layanan: editingOffer.layanan,
         agingHari: parseInt(editingOffer.aging_hari),
         statusProspek: editingOffer.status_prospek || 'IN_PROGRESS',
+        picAm: editingOffer.pic_am || user.nama_lengkap,
       }),
     });
 
@@ -119,6 +130,7 @@ export default function ReminderPage() {
         layanan: offer.layanan,
         agingHari: offer.aging_hari,
         statusProspek: newStatus,
+        picAm: offer.pic_am || user.nama_lengkap,
       }),
     });
 
@@ -155,6 +167,7 @@ export default function ReminderPage() {
         const namaKlien = row.nama_klien || row['Nama Klien'] || row['Nama Klien/Proyek'] || '';
         const layanan = row.layanan || row['Layanan'] || row['Produk'] || '';
         const agingHari = row.aging_hari || row['Aging Hari'] || row['Aging'] || 0;
+        const picAm = row.pic_am || row['PIC'] || row['PIC AM'] || user.nama_lengkap;
 
         if (namaKlien && layanan) {
           await fetch('/api/penawaran', {
@@ -165,6 +178,7 @@ export default function ReminderPage() {
               namaKlien: String(namaKlien),
               layanan: String(layanan),
               agingHari: parseInt(agingHari) || 0,
+              picAm: String(picAm),
             }),
           });
           count++;
@@ -189,6 +203,7 @@ export default function ReminderPage() {
 
     const excelData = filteredOffers.map((item, idx) => ({
       No: idx + 1,
+      'PIC / AM': item.pic_am || user.nama_lengkap,
       'Nama Klien': item.nama_klien,
       Layanan: item.layanan,
       'Aging (Hari)': item.aging_hari,
@@ -209,6 +224,7 @@ export default function ReminderPage() {
         (item, idx) => `
       <tr>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${idx + 1}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #E4002B;">${item.pic_am || user.nama_lengkap}</td>
         <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${item.nama_klien}</td>
         <td style="padding: 8px; border: 1px solid #ddd;">${item.layanan}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.aging_hari} Hari</td>
@@ -248,6 +264,7 @@ export default function ReminderPage() {
             <thead>
               <tr>
                 <th>No</th>
+                <th>PIC / AM</th>
                 <th>Nama Klien</th>
                 <th>Layanan / Produk</th>
                 <th>Aging</th>
@@ -279,13 +296,17 @@ export default function ReminderPage() {
   if (!user) return null;
 
   const activeOffers = offers.filter((o) => !o.status_prospek || o.status_prospek === 'IN_PROGRESS');
+  const uniquePics = [...new Set(activeOffers.map((item) => item.pic_am || user.nama_lengkap).filter(Boolean))];
+
   const urgentList = activeOffers.filter((o) => o.aging_hari >= 21);
   const followUpList = activeOffers.filter((o) => o.aging_hari >= 14 && o.aging_hari <= 20);
   const monitoringList = activeOffers.filter((o) => o.aging_hari >= 7 && o.aging_hari <= 13);
 
   const filteredOffers = activeOffers.filter((o) => {
+    const picLabel = o.pic_am || user.nama_lengkap;
     const matchesSearch = o.nama_klien.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          o.layanan.toLowerCase().includes(searchTerm.toLowerCase());
+                          o.layanan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          picLabel.toLowerCase().includes(searchTerm.toLowerCase());
     
     let status = 'MONITORING';
     if (o.aging_hari >= 21) status = 'URGENT';
@@ -378,6 +399,30 @@ export default function ReminderPage() {
             </div>
 
             <form onSubmit={handleAddOffer} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Nama PIC (Mas Ibay dsb)</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Mas Wildan"
+                    value={picInput}
+                    onChange={(e) => setPicInput(e.target.value)}
+                    required
+                    className="w-full border rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Aging (Jumlah Hari)</label>
+                  <input
+                    type="number"
+                    placeholder="Contoh: 233"
+                    value={daysInput}
+                    onChange={(e) => setDaysInput(e.target.value)}
+                    required
+                    className="w-full border rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Klien</label>
                 <input
@@ -400,17 +445,6 @@ export default function ReminderPage() {
                   className="w-full border rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Aging (Jumlah Hari)</label>
-                <input
-                  type="number"
-                  placeholder="Contoh: 233"
-                  value={daysInput}
-                  onChange={(e) => setDaysInput(e.target.value)}
-                  required
-                  className="w-full border rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none"
-                />
-              </div>
               <button
                 type="submit"
                 className="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-xs hover:bg-emerald-700 transition"
@@ -422,20 +456,35 @@ export default function ReminderPage() {
 
           <div className="bg-gray-900 text-green-400 p-5 rounded-xl shadow font-mono text-xs flex flex-col justify-between">
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-400 font-sans font-bold text-xs">✏️ Editor & Live Preview Telegram (Bisa Diedit Bebas):</span>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-gray-400 font-sans font-bold text-xs">✏️ Editor & Live Preview Telegram:</span>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(editableTelegramText);
                     alert('Teks disalin!');
                   }}
-                  className="bg-gray-700 hover:bg-gray-600 text-white px-2.5 py-1 rounded text-xs font-sans transition"
+                  className="bg-[#E4002B] hover:bg-[#c70025] text-white px-3 py-1.5 rounded text-xs font-sans font-bold transition shadow"
                 >
                   Copy Text
                 </button>
               </div>
+
+              {/* Filter Generate PIC sama seperti Telkom Collection */}
+              <div className="mb-3 font-sans">
+                <select
+                  value={filterPic}
+                  onChange={(e) => setFilterPic(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-white font-bold focus:outline-none"
+                >
+                  <option value="ALL">-- Generate Semua PIC --</option>
+                  {uniquePics.map((pic, i) => (
+                    <option key={i} value={pic}>Khusus {pic}</option>
+                  ))}
+                </select>
+              </div>
+
               <textarea
-                rows="12"
+                rows="11"
                 value={editableTelegramText}
                 onChange={(e) => setEditableTelegramText(e.target.value)}
                 className="w-full bg-gray-800/80 text-green-400 p-3 rounded-lg border border-gray-700 focus:border-green-500 focus:outline-none whitespace-pre-wrap font-mono text-xs leading-relaxed"
@@ -502,10 +551,10 @@ export default function ReminderPage() {
 
               <input
                 type="text"
-                placeholder="🔍 Cari Klien / Layanan..."
+                placeholder="🔍 Cari Klien / Layanan / PIC..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="border rounded-lg p-2 text-xs w-full md:w-44 focus:ring-2 focus:ring-[#E4002B] outline-none"
+                className="border rounded-lg p-2 text-xs w-full md:w-48 focus:ring-2 focus:ring-[#E4002B] outline-none"
               />
               <select
                 value={statusFilter}
@@ -525,6 +574,7 @@ export default function ReminderPage() {
               <thead>
                 <tr className="border-b bg-gray-50 text-gray-600">
                   <th className="p-3">No</th>
+                  <th className="p-3">PIC / AM</th>
                   <th className="p-3">Nama Klien</th>
                   <th className="p-3">Layanan</th>
                   <th className="p-3">Aging</th>
@@ -536,7 +586,7 @@ export default function ReminderPage() {
               <tbody>
                 {filteredOffers.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center p-4 text-gray-500">Tidak ada penawaran ditemukan</td>
+                    <td colSpan="8" className="text-center p-4 text-gray-500">Tidak ada penawaran ditemukan</td>
                   </tr>
                 ) : (
                   filteredOffers.map((row, idx) => {
@@ -555,6 +605,7 @@ export default function ReminderPage() {
                     return (
                       <tr key={row.id} className="border-b hover:bg-gray-50">
                         <td className="p-3 font-semibold">{idx + 1}</td>
+                        <td className="p-3 font-bold text-[#E4002B]">{row.pic_am || user.nama_lengkap}</td>
                         <td className="p-3 font-bold text-gray-800">{row.nama_klien}</td>
                         <td className="p-3 text-gray-600">{row.layanan}</td>
                         <td className="p-3 font-bold">{row.aging_hari} Hari</td>
@@ -608,6 +659,16 @@ export default function ReminderPage() {
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full space-y-4">
             <h3 className="font-bold text-gray-800 text-base">✏️ Edit Data Penawaran</h3>
             <form onSubmit={handleUpdateOffer} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Nama PIC / AM</label>
+                <input
+                  type="text"
+                  value={editingOffer.pic_am || ''}
+                  onChange={(e) => setEditingOffer({ ...editingOffer, pic_am: e.target.value })}
+                  required
+                  className="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none"
+                />
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Klien</label>
                 <input

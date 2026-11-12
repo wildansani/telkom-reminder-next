@@ -2,6 +2,10 @@
 import { sql } from '../../../lib/db';
 import { NextResponse } from 'next/server';
 
+async function ensurePicColumn() {
+  await sql`ALTER TABLE penawaran ADD COLUMN IF NOT EXISTS pic_am VARCHAR(100)`;
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
@@ -11,9 +15,10 @@ export async function GET(request) {
   }
 
   try {
+    await ensurePicColumn();
     const data = await sql`
-      SELECT * FROM penawaran 
-      WHERE user_id = ${userId} 
+      SELECT * FROM penawaran
+      WHERE user_id = ${userId}
       ORDER BY aging_hari DESC
     `;
     return NextResponse.json({ data }, { status: 200 });
@@ -24,11 +29,12 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { userId, namaKlien, layanan, agingHari } = await request.json();
+    await ensurePicColumn();
+    const { userId, namaKlien, layanan, agingHari, picAm } = await request.json();
 
     const newOffer = await sql`
-      INSERT INTO penawaran (user_id, nama_klien, layanan, aging_hari, status_prospek)
-      VALUES (${userId}, ${namaKlien.toUpperCase()}, ${layanan}, ${agingHari}, 'IN_PROGRESS')
+      INSERT INTO penawaran (user_id, nama_klien, layanan, aging_hari, status_prospek, pic_am)
+      VALUES (${userId}, ${namaKlien.toUpperCase()}, ${layanan}, ${agingHari}, 'IN_PROGRESS', ${picAm || ''})
       RETURNING *
     `;
 
@@ -40,18 +46,20 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, namaKlien, layanan, agingHari, statusProspek } = await request.json();
+    await ensurePicColumn();
+    const { id, namaKlien, layanan, agingHari, statusProspek, picAm } = await request.json();
 
     if (!id) {
       return NextResponse.json({ message: 'ID penawaran diperlukan' }, { status: 400 });
     }
 
     const updatedOffer = await sql`
-      UPDATE penawaran 
-      SET nama_klien = ${namaKlien.toUpperCase()}, 
-          layanan = ${layanan}, 
+      UPDATE penawaran
+      SET nama_klien = ${namaKlien.toUpperCase()},
+          layanan = ${layanan},
           aging_hari = ${agingHari},
-          status_prospek = ${statusProspek || 'IN_PROGRESS'}
+          status_prospek = ${statusProspek || 'IN_PROGRESS'},
+          pic_am = ${picAm || ''}
       WHERE id = ${id}
       RETURNING *
     `;
@@ -78,4 +86,3 @@ export async function DELETE(request) {
     return NextResponse.json({ message: 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
-
