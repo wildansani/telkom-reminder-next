@@ -1,4 +1,5 @@
-﻿import { sql } from '../../../lib/db';
+﻿export const dynamic = 'force-dynamic';
+import { sql } from '../../../lib/db';
 import { NextResponse } from 'next/server';
 
 export async function GET(request) {
@@ -52,3 +53,4 @@ export async function DELETE(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
