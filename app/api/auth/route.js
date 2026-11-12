@@ -18,7 +18,8 @@ export async function POST(request) {
 
     return NextResponse.json({ user: users[0] }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ message: 'Database Error', error: error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Database Error: ' + (error?.message || String(error)), error: error.message }, { status: 500 });
   }
 }
+
 
