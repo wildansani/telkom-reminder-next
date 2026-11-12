@@ -11,7 +11,8 @@ export default function ReminderPage() {
   const [daysInput, setDaysInput] = useState('');
   const [picInput, setPicInput] = useState('');
   
-  // State Filter & Search
+  // State Tab, Filter & Search
+  const [activeTab, setActiveTab] = useState('ACTIVE'); // 'ACTIVE' atau 'COMPLETED'
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [filterPic, setFilterPic] = useState('ALL');
@@ -54,7 +55,7 @@ export default function ReminderPage() {
     }
   };
 
-  // Sinkronisasi otomatis format Telegram saat data, tag, atau filter PIC berubah
+  // Sinkronisasi otomatis format Telegram (hanya dari daftar proyek yang masih IN_PROGRESS)
   useEffect(() => {
     if (!user) return;
     const activeAll = offers.filter((o) => !o.status_prospek || o.status_prospek === 'IN_PROGRESS');
@@ -213,12 +214,14 @@ export default function ReminderPage() {
 
     const worksheet = window.XLSX.utils.json_to_sheet(excelData);
     const workbook = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Laporan Penawaran');
-    window.XLSX.writeFile(workbook, `Laporan_Penawaran_Telkom_${user.nama_lengkap.replace(/\s+/g, '_')}.xlsx`);
+    const sheetLabel = activeTab === 'ACTIVE' ? 'Penawaran Aktif' : 'Penawaran Selesai';
+    window.XLSX.utils.book_append_sheet(workbook, worksheet, sheetLabel);
+    window.XLSX.writeFile(workbook, `Laporan_${sheetLabel.replace(/\s+/g, '_')}_Telkom_${user.nama_lengkap.replace(/\s+/g, '_')}.xlsx`);
   };
 
   const exportToPDF = () => {
     const printWindow = window.open('', '_blank');
+    const reportTitle = activeTab === 'ACTIVE' ? 'LAPORAN STATUS PENAWARAN AKTIF' : 'LAPORAN PENAWARAN SELESAI (WON / LOST)';
     const tableRows = filteredOffers
       .map(
         (item, idx) => `
@@ -233,7 +236,9 @@ export default function ReminderPage() {
         }">
           ${item.aging_hari >= 21 ? 'Urgent' : item.aging_hari >= 14 ? 'Follow Up' : 'Monitoring'}
         </td>
-        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: ${
+          item.status_prospek === 'WON' ? '#059669' : item.status_prospek === 'LOST' ? '#dc2626' : '#1d4ed8'
+        }">
           ${item.status_prospek || 'IN_PROGRESS'}
         </td>
       </tr>
@@ -244,7 +249,7 @@ export default function ReminderPage() {
     const htmlContent = `
       <html>
         <head>
-          <title>Laporan Penawaran Telkom - ${user.nama_lengkap}</title>
+          <title>${reportTitle} - ${user.nama_lengkap}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
             .header { border-bottom: 3px solid #E4002B; padding-bottom: 10px; margin-bottom: 20px; }
@@ -257,7 +262,7 @@ export default function ReminderPage() {
         </head>
         <body>
           <div class="header">
-            <h1>PT TELKOM INDONESIA (PERSERO) TBK - LAPORAN STATUS PENAWARAN EBS</h1>
+            <h1>PT TELKOM INDONESIA (PERSERO) TBK - ${reportTitle}</h1>
             <p>Account Manager: <b>${user.nama_lengkap}</b> | Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}</p>
           </div>
           <table>
@@ -296,25 +301,31 @@ export default function ReminderPage() {
   if (!user) return null;
 
   const activeOffers = offers.filter((o) => !o.status_prospek || o.status_prospek === 'IN_PROGRESS');
+  const completedOffers = offers.filter((o) => o.status_prospek === 'WON' || o.status_prospek === 'LOST');
   const uniquePics = [...new Set(activeOffers.map((item) => item.pic_am || user.nama_lengkap).filter(Boolean))];
 
   const urgentList = activeOffers.filter((o) => o.aging_hari >= 21);
   const followUpList = activeOffers.filter((o) => o.aging_hari >= 14 && o.aging_hari <= 20);
   const monitoringList = activeOffers.filter((o) => o.aging_hari >= 7 && o.aging_hari <= 13);
 
-  const filteredOffers = activeOffers.filter((o) => {
+  const sourceOffers = activeTab === 'ACTIVE' ? activeOffers : completedOffers;
+
+  const filteredOffers = sourceOffers.filter((o) => {
     const picLabel = o.pic_am || user.nama_lengkap;
     const matchesSearch = o.nama_klien.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           o.layanan.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           picLabel.toLowerCase().includes(searchTerm.toLowerCase());
     
-    let status = 'MONITORING';
-    if (o.aging_hari >= 21) status = 'URGENT';
-    else if (o.aging_hari >= 14) status = 'FOLLOW_UP';
-
-    const matchesStatus = statusFilter === 'ALL' || statusFilter === status;
-
-    return matchesSearch && matchesStatus;
+    if (activeTab === 'ACTIVE') {
+      let status = 'MONITORING';
+      if (o.aging_hari >= 21) status = 'URGENT';
+      else if (o.aging_hari >= 14) status = 'FOLLOW_UP';
+      const matchesStatus = statusFilter === 'ALL' || statusFilter === status;
+      return matchesSearch && matchesStatus;
+    } else {
+      const matchesOutcome = statusFilter === 'ALL' || statusFilter === o.status_prospek;
+      return matchesSearch && matchesOutcome;
+    }
   });
 
   const handleSendTelegram = async () => {
@@ -371,7 +382,7 @@ export default function ReminderPage() {
 
       <div className="max-w-6xl mx-auto p-4 space-y-6">
         {/* Card Counters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
             <p className="text-3xl font-extrabold text-[#E4002B]">{urgentList.length}</p>
             <p className="text-xs font-bold text-gray-600 mt-1">Urgent (≥21 Hari)</p>
@@ -383,6 +394,12 @@ export default function ReminderPage() {
           <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-center">
             <p className="text-3xl font-extrabold text-sky-600">{monitoringList.length}</p>
             <p className="text-xs font-bold text-gray-600 mt-1">Monitoring (7–13 Hari)</p>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+            <p className="text-3xl font-extrabold text-emerald-600">
+              {completedOffers.filter((o) => o.status_prospek === 'WON').length}
+            </p>
+            <p className="text-xs font-bold text-gray-600 mt-1">🎉 Closing (WON)</p>
           </div>
         </div>
 
@@ -469,7 +486,7 @@ export default function ReminderPage() {
                 </button>
               </div>
 
-              {/* Filter Generate PIC sama seperti Telkom Collection */}
+              {/* Filter Generate PIC */}
               <div className="mb-3 font-sans">
                 <select
                   value={filterPic}
@@ -530,10 +547,38 @@ export default function ReminderPage() {
           </div>
         </div>
 
-        {/* Tabel Penawaran + Search, Filter & Export */}
+        {/* Tabel Penawaran (Tab Aktif vs Tab Selesai/Beres) + Search, Filter & Export */}
         <div className="bg-white rounded-xl shadow p-5 space-y-4">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-            <h3 className="font-bold text-gray-800 text-sm">📋 Daftar Penawaran Aktif</h3>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-4">
+            {/* Tab Switcher */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  setActiveTab('ACTIVE');
+                  setStatusFilter('ALL');
+                }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+                  activeTab === 'ACTIVE'
+                    ? 'bg-[#E4002B] text-white shadow'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                📋 Daftar Penawaran Aktif ({activeOffers.length})
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('COMPLETED');
+                  setStatusFilter('ALL');
+                }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+                  activeTab === 'COMPLETED'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                ✅ Daftar Penawaran Selesai / Beres ({completedOffers.length})
+              </button>
+            </div>
             
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
               <button
@@ -554,18 +599,30 @@ export default function ReminderPage() {
                 placeholder="🔍 Cari Klien / Layanan / PIC..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="border rounded-lg p-2 text-xs w-full md:w-48 focus:ring-2 focus:ring-[#E4002B] outline-none"
+                className="border rounded-lg p-2 text-xs w-full md:w-44 focus:ring-2 focus:ring-[#E4002B] outline-none"
               />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="border rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none bg-white"
-              >
-                <option value="ALL">Semua Status</option>
-                <option value="URGENT">Urgent (≥21 Hari)</option>
-                <option value="FOLLOW_UP">Follow Up (14-20 Hari)</option>
-                <option value="MONITORING">Monitoring (7-13 Hari)</option>
-              </select>
+              {activeTab === 'ACTIVE' ? (
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="border rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none bg-white"
+                >
+                  <option value="ALL">Semua Prioritas</option>
+                  <option value="URGENT">Urgent (≥21 Hari)</option>
+                  <option value="FOLLOW_UP">Follow Up (14-20 Hari)</option>
+                  <option value="MONITORING">Monitoring (7-13 Hari)</option>
+                </select>
+              ) : (
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="border rounded-lg p-2 text-xs focus:ring-2 focus:ring-emerald-600 outline-none bg-white"
+                >
+                  <option value="ALL">Semua Hasil</option>
+                  <option value="WON">🎉 WON (Closing)</option>
+                  <option value="LOST">❌ LOST (Batal)</option>
+                </select>
+              )}
             </div>
           </div>
 
@@ -586,7 +643,11 @@ export default function ReminderPage() {
               <tbody>
                 {filteredOffers.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center p-4 text-gray-500">Tidak ada penawaran ditemukan</td>
+                    <td colSpan="8" className="text-center p-4 text-gray-500">
+                      {activeTab === 'ACTIVE'
+                        ? 'Tidak ada penawaran aktif ditemukan'
+                        : 'Belum ada penawaran yang selesai (WON / LOST)'}
+                    </td>
                   </tr>
                 ) : (
                   filteredOffers.map((row, idx) => {
@@ -629,7 +690,16 @@ export default function ReminderPage() {
                             <option value="LOST">❌ LOST (Batal)</option>
                           </select>
                         </td>
-                        <td className="p-3 text-center space-x-2">
+                        <td className="p-3 text-center space-x-1.5">
+                          {activeTab === 'COMPLETED' && (
+                            <button
+                              onClick={() => handleQuickStatusChange(row, 'IN_PROGRESS')}
+                              className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-2.5 py-1 rounded text-xs transition shadow"
+                              title="Kembalikan ke Daftar Aktif"
+                            >
+                              ↩️ Aktifkan
+                            </button>
+                          )}
                           <button
                             onClick={() => setEditingOffer(row)}
                             className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-2.5 py-1 rounded text-xs transition shadow"
