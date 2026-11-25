@@ -31,7 +31,7 @@ export async function GET(request) {
     const data = await sql`
       SELECT * FROM indibiz_billing
       WHERE user_id = ${userId}
-      ORDER BY id ASC
+      ORDER BY nama_pelanggan ASC
     `;
     return NextResponse.json({ data }, { status: 200 });
   } catch (error) {
@@ -141,4 +141,5 @@ export async function DELETE(request) {
     return NextResponse.json({ message: 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
+
 
