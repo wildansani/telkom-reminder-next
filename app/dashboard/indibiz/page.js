@@ -268,6 +268,16 @@ Billing Telkom Priangan Timur`;
     if (res.ok) fetchCustomers(user.id);
   };
 
+  const handleClearAll = async () => {
+    if (!confirm('⚠️ Yakin ingin mengosongkan SEMUA data pelanggan Indibiz agar bisa import ulang dari awal?')) return;
+    const res = await fetch(`/api/indibiz?clearAllUserId=${user.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setSelectedCustomerId('');
+      fetchCustomers(user.id);
+      alert('🧹 Semua data berhasil dikosongkan! Silakan import ulang file Excel kamu.');
+    }
+  };
+
   const handleDeleteCustomer = async (id) => {
     if (!confirm('Hapus data pelanggan ini dari daftar?')) return;
     const res = await fetch(`/api/indibiz?id=${id}`, { method: 'DELETE' });
@@ -468,10 +478,21 @@ Billing Telkom Priangan Timur`;
               </p>
             </div>
 
-            <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition">
-              📥 Import Master Pelanggan (Excel/CSV)
-              <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" />
-            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition">
+                📥 Import Master Pelanggan (Excel/CSV)
+                <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" />
+              </label>
+              {customers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition"
+                >
+                  🗑️ Reset Semua ({customers.length})
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Form Tambah Cepat Master Pelanggan */}
@@ -626,5 +647,6 @@ Billing Telkom Priangan Timur`;
     </div>
   );
 }
+
 
 
