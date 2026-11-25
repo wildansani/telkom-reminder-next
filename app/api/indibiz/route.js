@@ -42,8 +42,37 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await ensureIndibizTable();
-    const { userId, nomorLayanan, namaPelanggan, noWa, periode, nominal } = await request.json();
+    const body = await request.json();
 
+    // Mode Bulk Import (Array items sekaligus dalam 1 transaksi)
+    if (Array.isArray(body.items)) {
+      let insertedCount = 0;
+      const chunkSize = 50;
+      for (let i = 0; i < body.items.length; i += chunkSize) {
+        const chunk = body.items.slice(i, i + chunkSize);
+        await Promise.all(
+          chunk.map((item) =>
+            sql`
+              INSERT INTO indibiz_billing (user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal, status_chat)
+              VALUES (
+                ${body.userId},
+                ${String(item.nomorLayanan).trim()},
+                ${String(item.namaPelanggan).toUpperCase().trim()},
+                ${String(item.noWa || '').trim()},
+                ${String(item.periode || '').trim()},
+                ${parseInt(item.nominal) || 0},
+                'BELUM_CHAT'
+              )
+            `
+          )
+        );
+        insertedCount += chunk.length;
+      }
+      return NextResponse.json({ message: 'Bulk insert sukses', count: insertedCount }, { status: 201 });
+    }
+
+    // Mode Single Insert (Manual)
+    const { userId, nomorLayanan, namaPelanggan, noWa, periode, nominal } = body;
     const inserted = await sql`
       INSERT INTO indibiz_billing (user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal, status_chat)
       VALUES (
@@ -95,6 +124,12 @@ export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const clearAllUserId = searchParams.get('clearAllUserId');
+
+    if (clearAllUserId) {
+      await sql`DELETE FROM indibiz_billing WHERE user_id = ${clearAllUserId}`;
+      return NextResponse.json({ message: 'Semua data berhasil dikosongkan' }, { status: 200 });
+    }
 
     if (!id) {
       return NextResponse.json({ message: 'ID diperlukan' }, { status: 400 });

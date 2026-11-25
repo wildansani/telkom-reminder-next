@@ -170,72 +170,87 @@ Billing Telkom Priangan Timur`;
     reader.onload = async (evt) => {
       const bstr = evt.target.result;
       const wb = window.XLSX.read(bstr, { type: 'binary' });
-      const wsName = wb.SheetNames[0];
-      const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header: 1, defval: '' });
 
-      let count = 0;
-      for (const cols of rows) {
-        if (!Array.isArray(cols) || cols.length === 0) continue;
+      const existingIds = new Set(customers.map((c) => String(c.nomor_layanan).trim()));
+      const itemsToInsert = [];
 
-        const cleanCols = cols.map((c) => String(c ?? '').trim());
-        // Lewati baris header jika ada
-        const joinedLower = cleanCols.join(' ').toLowerCase();
-        if (joinedLower.includes('nomor layanan') || joinedLower.includes('nama pelanggan')) continue;
+      // Baca seluruh sheet di workbook
+      for (const sheetName of wb.SheetNames) {
+        const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
 
-        let nomor = '';
-        let nama = '';
-        let wa = '';
-        let nominal = 0;
+        for (const cols of rows) {
+          if (!Array.isArray(cols) || cols.length === 0) continue;
 
-        // Deteksi format tabel kamu: [STATUS, ID_LAYANAN, NAMA_PELANGGAN, NO_HP, ...]
-        if (cleanCols.length >= 3 && /^(unpaid|paid|partial|lunas|belum)/i.test(cleanCols[0])) {
-          nomor = cleanCols[1];
-          nama = cleanCols[2];
-          wa = cleanCols[3] || '';
-          nominal = parseInt(String(cleanCols[4] || '0').replace(/\D/g, ''), 10) || 0;
-        } else {
-          // Deteksi otomatis berdasarkan pola isi kolom
-          for (const val of cleanCols) {
-            if (!val) continue;
-            if (!nomor && /^1\d{10,13}$/.test(val.replace(/\D/g, ''))) {
-              nomor = val.replace(/\D/g, '');
-            } else if (!wa && (/^(08|628|8)\d{7,12}/.test(val.replace(/\D/g, '')) || val.includes(';'))) {
-              wa = val;
-            } else if (!nama && /[a-zA-Z]{2,}/.test(val) && !/^(unpaid|paid|partial|lunas)$/i.test(val)) {
-              nama = val;
+          const cleanCols = cols.map((c) => String(c ?? '').trim());
+          const joinedLower = cleanCols.join(' ').toLowerCase();
+          if (joinedLower.includes('nomor layanan') || joinedLower.includes('nama pelanggan')) continue;
+
+          let nomor = '';
+          let nama = '';
+          let wa = '';
+          let nominal = 0;
+
+          // Pola 1: Kolom A adalah status (UNPAID/PAID/dll)
+          if (cleanCols.length >= 3 && /^(unpaid|paid|partial|lunas|belum)/i.test(cleanCols[0])) {
+            nomor = cleanCols[1].replace(/\D/g, '');
+            nama = cleanCols[2];
+            wa = cleanCols[3] || '';
+            nominal = parseInt(String(cleanCols[4] || '0').replace(/\D/g, ''), 10) || 0;
+          } else {
+            // Pola 2: Deteksi fleksibel semua kolom (angka 9-16 digit = ID Layanan)
+            for (const val of cleanCols) {
+              if (!val) continue;
+              const digits = val.replace(/\D/g, '');
+              if (!nomor && digits.length >= 9 && digits.length <= 16 && !/^(08|628|8)\d{8,12}$/.test(digits)) {
+                nomor = digits;
+              } else if (!wa && (/^(08|628|8)\d{7,13}/.test(digits) || val.includes(';'))) {
+                wa = val;
+              } else if (!nama && /[a-zA-Z]{2,}/.test(val) && !/^(unpaid|paid|partial|lunas)$/i.test(val)) {
+                nama = val;
+              }
             }
           }
-        }
 
-        // Rapikan nomor WA (ambil nomor pertama jika dipisah ';', tambahkan '0' jika diawali '8')
-        if (wa) {
-          const firstWa = wa.split(/[;,/]/)[0].replace(/\D/g, '');
-          wa = firstWa.startsWith('8') ? '0' + firstWa : firstWa;
-        }
+          if (wa) {
+            const firstWa = wa.split(/[;,/]/)[0].replace(/\D/g, '');
+            wa = firstWa.startsWith('8') ? '0' + firstWa : firstWa;
+          }
 
-        if (nomor && nama) {
-          await fetch('/api/indibiz', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.id,
+          if (nomor && nama && !existingIds.has(nomor)) {
+            existingIds.add(nomor);
+            itemsToInsert.push({
               nomorLayanan: String(nomor),
               namaPelanggan: String(nama).replace(/\s+/g, ' '),
               noWa: String(wa),
               periode: defaultPeriode,
               nominal,
-            }),
-          });
-          count++;
+            });
+          }
         }
       }
-      alert(`🚀 Berhasil mengimpor ${count} master pelanggan Indibiz!`);
+
+      if (itemsToInsert.length === 0) {
+        alert('⚠️ Tidak ada data baru yang ditemukan (semua nomor layanan sudah ada atau format belum terbaca).');
+        e.target.value = '';
+        return;
+      }
+
+      const res = await fetch('/api/indibiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, items: itemsToInsert }),
+      });
+
+      if (res.ok) {
+        alert(`🚀 Berhasil mengimpor ${itemsToInsert.length} master pelanggan Indibiz baru!`);
+        fetchCustomers(user.id);
+      } else {
+        alert('❌ Gagal mengimpor data ke database.');
+      }
       e.target.value = '';
-      fetchCustomers(user.id);
     };
     reader.readAsBinaryString(file);
   };
-
   const handleStatusChange = async (cust, newStatus) => {
     const res = await fetch('/api/indibiz', {
       method: 'PUT',
@@ -611,4 +626,5 @@ Billing Telkom Priangan Timur`;
     </div>
   );
 }
+
 
