@@ -171,15 +171,47 @@ Billing Telkom Priangan Timur`;
       const bstr = evt.target.result;
       const wb = window.XLSX.read(bstr, { type: 'binary' });
       const wsName = wb.SheetNames[0];
-      const data = window.XLSX.utils.sheet_to_json(wb.Sheets[wsName]);
+      const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header: 1, defval: '' });
 
       let count = 0;
-      for (const row of data) {
-        const nomor = row.nomor_layanan || row['Nomor Layanan'] || row['ID Layanan'] || row['ND'] || row['No Layanan'] || '';
-        const nama = row.nama_pelanggan || row['Nama Pelanggan'] || row['Nama Klien'] || row['Pelanggan'] || '';
-        const wa = row.no_wa || row['No WA'] || row['WhatsApp'] || row['No HP'] || row['HP'] || '';
-        const periode = row.periode || row['Periode'] || defaultPeriode;
-        const nominal = row.nominal || row['Total Tagihan'] || row['Tagihan'] || 0;
+      for (const cols of rows) {
+        if (!Array.isArray(cols) || cols.length === 0) continue;
+
+        const cleanCols = cols.map((c) => String(c ?? '').trim());
+        // Lewati baris header jika ada
+        const joinedLower = cleanCols.join(' ').toLowerCase();
+        if (joinedLower.includes('nomor layanan') || joinedLower.includes('nama pelanggan')) continue;
+
+        let nomor = '';
+        let nama = '';
+        let wa = '';
+        let nominal = 0;
+
+        // Deteksi format tabel kamu: [STATUS, ID_LAYANAN, NAMA_PELANGGAN, NO_HP, ...]
+        if (cleanCols.length >= 3 && /^(unpaid|paid|partial|lunas|belum)/i.test(cleanCols[0])) {
+          nomor = cleanCols[1];
+          nama = cleanCols[2];
+          wa = cleanCols[3] || '';
+          nominal = parseInt(String(cleanCols[4] || '0').replace(/\D/g, ''), 10) || 0;
+        } else {
+          // Deteksi otomatis berdasarkan pola isi kolom
+          for (const val of cleanCols) {
+            if (!val) continue;
+            if (!nomor && /^1\d{10,13}$/.test(val.replace(/\D/g, ''))) {
+              nomor = val.replace(/\D/g, '');
+            } else if (!wa && (/^(08|628|8)\d{7,12}/.test(val.replace(/\D/g, '')) || val.includes(';'))) {
+              wa = val;
+            } else if (!nama && /[a-zA-Z]{2,}/.test(val) && !/^(unpaid|paid|partial|lunas)$/i.test(val)) {
+              nama = val;
+            }
+          }
+        }
+
+        // Rapikan nomor WA (ambil nomor pertama jika dipisah ';', tambahkan '0' jika diawali '8')
+        if (wa) {
+          const firstWa = wa.split(/[;,/]/)[0].replace(/\D/g, '');
+          wa = firstWa.startsWith('8') ? '0' + firstWa : firstWa;
+        }
 
         if (nomor && nama) {
           await fetch('/api/indibiz', {
@@ -188,16 +220,17 @@ Billing Telkom Priangan Timur`;
             body: JSON.stringify({
               userId: user.id,
               nomorLayanan: String(nomor),
-              namaPelanggan: String(nama),
+              namaPelanggan: String(nama).replace(/\s+/g, ' '),
               noWa: String(wa),
-              periode: String(periode),
-              nominal: parseInt(String(nominal).replace(/\D/g, ''), 10) || 0,
+              periode: defaultPeriode,
+              nominal,
             }),
           });
           count++;
         }
       }
       alert(`🚀 Berhasil mengimpor ${count} master pelanggan Indibiz!`);
+      e.target.value = '';
       fetchCustomers(user.id);
     };
     reader.readAsBinaryString(file);
@@ -578,3 +611,4 @@ Billing Telkom Priangan Timur`;
     </div>
   );
 }
+
