@@ -126,7 +126,7 @@ export default function MainDashboardMenu() {
             <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Pilih Modul Operasional</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Modul 1: Reminder Status Penawaran */}
             <Link
               href="/dashboard/reminder"
@@ -209,6 +209,33 @@ export default function MainDashboardMenu() {
                 <span className="text-sm font-bold text-emerald-700 group-hover:translate-x-1 transition-transform">➡️</span>
               </div>
             </Link>
+
+            {/* Modul 4: Auto Surat Tagihan Resmi */}
+            <Link
+              href="/dashboard/surat-tagihan"
+              className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-amber-600 overflow-hidden flex flex-col justify-between"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center text-2xl group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                    📄
+                  </div>
+                  <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full">
+                    PDF A4 Resmi
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-800 group-hover:text-amber-700 transition-colors">
+                  Auto Surat Tagihan
+                </h3>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  Buat surat resmi Penyelesaian Tunggakan Layanan Telkom (Witel Priangan Timur) lengkap dengan tabel bulan, QR bayar, dan cetak PDF.
+                </p>
+              </div>
+              <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex justify-between items-center group-hover:bg-amber-50/60 transition-colors">
+                <span className="text-xs font-bold text-slate-600 group-hover:text-amber-700">Buat Surat Tagihan</span>
+                <span className="text-sm font-bold text-amber-700 group-hover:translate-x-1 transition-transform">➡️</span>
+              </div>
+            </Link>
           </div>
         </div>
       </div>
@@ -217,3 +244,4 @@ export default function MainDashboardMenu() {
     </div>
   );
 }
+
