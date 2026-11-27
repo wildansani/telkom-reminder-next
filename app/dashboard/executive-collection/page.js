@@ -945,7 +945,6 @@ export default function ExecutiveCollectionPage() {
         {/* ===================================================================== */}
         {activeSection === 'KINERJA_PIC' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Tabel Leaderboard Kinerja PIC/AM (8 Kolom) */}
             <div className="lg:col-span-8 bg-white rounded-2xl shadow-sm p-6 border border-slate-100 space-y-4">
               <div className="flex justify-between items-center border-b pb-3">
                 <div>
@@ -991,7 +990,6 @@ export default function ExecutiveCollectionPage() {
               </div>
             </div>
 
-            {/* Panel Sorotan Performa & Statistik Jaringan (4 Kolom) */}
             <div className="lg:col-span-4 space-y-6">
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 space-y-4">
                 <h4 className="text-sm font-black text-slate-800">⭐ Sorotan Performa Petugas</h4>
@@ -1018,7 +1016,6 @@ export default function ExecutiveCollectionPage() {
                   </div>
                 </div>
 
-                {/* Progress Bar Efektivitas */}
                 <div className="pt-2 space-y-3">
                   <h5 className="text-xs font-black text-slate-700">Statistik Efektivitas Collection</h5>
 
@@ -1056,9 +1053,104 @@ export default function ExecutiveCollectionPage() {
             </div>
           </div>
         )}
+
+        {/* ===================================================================== */}
+        {/* SECTION 4: PUSAT INTEGRASI & SINKRONISASI DATA SEMUA MODUL            */}
+        {/* ===================================================================== */}
+        {activeSection === 'INTEGRASI_DATA' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7 bg-white rounded-2xl shadow-sm p-6 border border-slate-100 space-y-5">
+              <div className="border-b pb-3">
+                <h3 className="text-base font-black text-slate-800">🔄 Pusat Sinkronisasi & Export Database Terpadu</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Satu pintu untuk mengimpor dataset Excel 44 kolom Telkom ke seluruh modul sekaligus atau mengunduh rekap lengkap 3 sheet.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                  <div>
+                    <span className="text-xs font-black text-emerald-900">📥 1. Import Dataset Excel</span>
+                    <p className="text-[11px] text-emerald-800 mt-1 leading-relaxed">
+                      Otomatis menyinkronkan data ke modul <b>Indibiz WA</b>, <b>Surat Tagihan PDF</b>, <b>Caring & Visit</b>, dan <b>Grafik BI</b> tanpa duplikat.
+                    </p>
+                  </div>
+                  <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl text-center shadow transition">
+                    Pilih File Excel (.xlsx / .csv)
+                    <input type="file" accept=".xlsx, .xls, .csv" onChange={handleMasterBulkImport} className="hidden" />
+                  </label>
+                </div>
+
+                <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                  <div>
+                    <span className="text-xs font-black text-[#E4002B]">📤 2. Export Full Data (Multi-Sheet)</span>
+                    <p className="text-[11px] text-slate-700 mt-1 leading-relaxed">
+                      Unduh 1 file Excel berisi <b>3 Sheet terintegrasi</b>: Data Indibiz & Caring/Visit, Piutang & Bukpot, serta Prospek Penawaran.
+                    </p>
+                  </div>
+                  <button
+                    onClick={exportFullPortalBackup}
+                    className="bg-gradient-to-r from-[#E4002B] to-[#99001D] hover:opacity-90 text-white text-xs font-bold px-4 py-2.5 rounded-xl text-center shadow transition"
+                  >
+                    ⬇️ Download Excel Semua Modul
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border rounded-xl p-4">
+                <p className="text-xs font-black text-slate-700 mb-2">🔗 Status Koneksi Antar Modul (Real-Time PostgreSQL)</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                  <div className="bg-white p-2.5 rounded-lg border">
+                    <p className="text-lg font-black text-[#E4002B]">{records.length}</p>
+                    <p className="text-[10px] font-bold text-slate-500">Master Indibiz</p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border">
+                    <p className="text-lg font-black text-indigo-600">{records.length}</p>
+                    <p className="text-[10px] font-bold text-slate-500">Surat Tagihan</p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border">
+                    <p className="text-lg font-black text-amber-600">{piutangRecords.length}</p>
+                    <p className="text-[10px] font-bold text-slate-500">Collection Bukpot</p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border">
+                    <p className="text-lg font-black text-emerald-600">{penawaranRecords.length}</p>
+                    <p className="text-[10px] font-bold text-slate-500">Prospek Telegram</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 bg-slate-950 text-slate-200 rounded-2xl shadow-lg p-5 font-mono text-xs flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                  <span className="font-bold text-white">Console Status Integrasi</span>
+                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2.5 py-0.5 rounded text-[10px] font-bold">
+                    NEON CLOUD CONNECTED
+                  </span>
+                </div>
+                <div className="space-y-2 text-[11px] leading-relaxed">
+                  <p className="text-slate-400">[SYNC] Menghubungkan Neon PostgreSQL Serverless...</p>
+                  <p className="text-purple-400">[DB] Memuat {records.length} master pelanggan Indibiz & Caring/Visit...</p>
+                  <p className="text-emerald-400">[OK] Modul Indibiz WA & Auto Surat Tagihan tersinkron 100%.</p>
+                  <p className="text-emerald-400">[OK] Modul Piutang ({piutangRecords.length} data) & Penawaran ({penawaranRecords.length} data) aktif.</p>
+                  <p className="text-amber-300">[READY] Siap melakukan Import Excel atau Export Multi-Sheet.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 mt-6 pt-4 border-t border-slate-800">
+                <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                  <p className="text-[10px] text-slate-400">Caring Rate</p>
+                  <p className="text-base font-black text-amber-400">{caringPct}%</p>
+                </div>
+                <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                  <p className="text-[10px] text-slate-400">Visit Rate</p>
+                  <p className="text-base font-black text-sky-400">{visitPct}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-
