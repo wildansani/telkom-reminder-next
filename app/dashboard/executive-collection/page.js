@@ -235,6 +235,136 @@ export default function ExecutiveCollectionPage() {
     return matchesSearch && matchesDatel && matchesCaring && matchesVisit && matchesPic;
   });
 
+  const handleMasterBulkImport = (e) => {
+    const file = e.target.files[0];
+    if (!file || !window.XLSX) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const bstr = evt.target.result;
+      const wb = window.XLSX.read(bstr, { type: 'binary' });
+      const existingIds = new Set(records.map((c) => String(c.nomor_layanan).trim()));
+      const itemsToInsert = [];
+
+      for (const sheetName of wb.SheetNames) {
+        const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+        for (const cols of rows) {
+          if (!Array.isArray(cols) || cols.length === 0) continue;
+          const cleanCols = cols.map((c) => String(c ?? '').trim());
+          const joinedLower = cleanCols.join(' ').toLowerCase();
+          if (joinedLower.includes('nomor layanan') || joinedLower.includes('nama pelanggan')) continue;
+
+          let nomor = '';
+          let nama = '';
+          let wa = '';
+          let nominal = 0;
+          let datel = 'Priangan Timur';
+          let pic = user.nama_lengkap;
+
+          if (cleanCols.length >= 3 && /^(unpaid|paid|partial|lunas|belum)/i.test(cleanCols[0])) {
+            nomor = cleanCols[1].replace(/\D/g, '');
+            nama = cleanCols[2];
+            wa = cleanCols[3] || '';
+            nominal = parseInt(String(cleanCols[4] || '0').replace(/\D/g, ''), 10) || 0;
+            if (cleanCols[5]) datel = cleanCols[5];
+            if (cleanCols[6]) pic = cleanCols[6];
+          } else {
+            for (const val of cleanCols) {
+              if (!val) continue;
+              const digits = val.replace(/\D/g, '');
+              if (!nomor && digits.length >= 9 && digits.length <= 16 && !/^(08|628|8)\d{8,12}$/.test(digits)) {
+                nomor = digits;
+              } else if (!wa && (/^(08|628|8)\d{7,13}/.test(digits) || val.includes(';'))) {
+                wa = val;
+              } else if (!nama && /[a-zA-Z]{2,}/.test(val) && !/^(unpaid|paid|partial|lunas)$/i.test(val)) {
+                nama = val;
+              }
+            }
+          }
+
+          if (wa) {
+            const firstWa = wa.split(/[;,/]/)[0].replace(/\D/g, '');
+            wa = firstWa.startsWith('8') ? '0' + firstWa : firstWa;
+          }
+
+          if (nomor && nama && !existingIds.has(nomor)) {
+            existingIds.add(nomor);
+            itemsToInsert.push({
+              nomorLayanan: String(nomor),
+              namaPelanggan: String(nama).replace(/\s+/g, ' '),
+              noWa: String(wa),
+              periode: 'Tagihan Berjalan',
+              nominal,
+              datelSto: datel,
+              picPetugas: pic,
+            });
+          }
+        }
+      }
+
+      if (itemsToInsert.length === 0) {
+        alert('⚠️ Semua nomor layanan di file ini sudah tersinkron di database.');
+        e.target.value = '';
+        return;
+      }
+
+      const res = await fetch('/api/indibiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, items: itemsToInsert }),
+      });
+
+      if (res.ok) {
+        alert(`✅ Berhasil menyinkronkan ${itemsToInsert.length} data baru ke seluruh modul!`);
+        loadAllAnalyticsData(user.id);
+      }
+      e.target.value = '';
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const exportFullPortalBackup = () => {
+    if (!window.XLSX) return;
+    const wb = window.XLSX.utils.book_new();
+
+    const sheetIndibiz = records.map((r, i) => ({
+      No: i + 1,
+      'Nomor Layanan': r.nomor_layanan,
+      'Nama Pelanggan': r.nama_pelanggan,
+      'No WhatsApp': r.no_wa || '-',
+      'Datel / STO': r.datel_sto || 'Priangan Timur',
+      'Nominal (Rp)': Number(r.nominal) || 0,
+      'Status Chat': r.status_chat || 'BELUM_CHAT',
+      'Status Caring': r.status_caring || 'BELUM_CARING',
+      'Status Visit': r.status_visit || 'BELUM_VISIT',
+      'PIC Petugas': r.pic_petugas || user.nama_lengkap,
+    }));
+
+    const sheetCollection = piutangRecords.map((p, i) => ({
+      No: i + 1,
+      'Nama Pelanggan': p.nama_pelanggan,
+      'Kategori': p.kategori || '-',
+      'Nominal (Rp)': Number(p.nominal) || 0,
+      'Status Pembayaran': p.status_pembayaran || 'UNPAID',
+      'PIC / AM': p.pic_am || '-',
+    }));
+
+    const sheetPenawaran = penawaranRecords.map((o, i) => ({
+      No: i + 1,
+      'Nama Pelanggan': o.nama_pelanggan,
+      'Layanan / Proyek': o.nama_layanan || '-',
+      'Aging (Hari)': o.aging_hari || 0,
+      'Status Prospek': o.status_prospek || 'IN_PROGRESS',
+      'PIC / AM': o.pic_am || '-',
+    }));
+
+    window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(sheetIndibiz), '1_Indibiz_&_Collection');
+    window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(sheetCollection), '2_Piutang_&_Bukpot');
+    window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(sheetPenawaran), '3_Prospek_Penawaran');
+
+    window.XLSX.writeFile(wb, `Full_Sync_Telkom_EBS_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const exportAnalyticsExcel = () => {
     if (!window.XLSX) return;
     const rows = filteredFollowUp.map((r, idx) => ({
@@ -332,6 +462,20 @@ export default function ExecutiveCollectionPage() {
             <span>🏆 Ranking Kinerja PIC / AM</span>
             <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-black">
               {picLeaderboard.length} Petugas
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveSection('INTEGRASI_DATA')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center gap-2 ${
+              activeSection === 'INTEGRASI_DATA'
+                ? 'bg-gradient-to-r from-[#E4002B] to-[#99001D] text-white shadow'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <span>🔄 Integrasi & Sinkronisasi Data</span>
+            <span className="bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full text-[10px] font-black">
+              Cloud DB
             </span>
           </button>
         </div>
@@ -971,3 +1115,4 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
+
