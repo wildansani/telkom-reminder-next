@@ -196,17 +196,17 @@ export default function SuratTagihanPage() {
       .map(
         (r) => `
         <tr>
-          <td style="border: 1px solid #222; padding: 6px 10px; text-align: center;">${r.bulan}</td>
-          <td style="border: 1px solid #222; padding: 6px 10px; text-align: center;">${formatRupiahComma(r.jumlah)}</td>
-          <td style="border: 1px solid #222; padding: 6px 10px; text-align: left;">${r.keterangan}</td>
+          <td style="border: 1px solid #222; padding: 3.5px 8px; text-align: center;">${r.bulan}</td>
+          <td style="border: 1px solid #222; padding: 3.5px 8px; text-align: center;">${formatRupiahComma(r.jumlah)}</td>
+          <td style="border: 1px solid #222; padding: 3.5px 8px; text-align: left;">${r.keterangan}</td>
         </tr>
       `
       )
       .join('');
 
     const logoHtml = customLogoUrl
-      ? `<img src="${customLogoUrl}" alt="Logo Telkom" style="height: 64px; object-fit: contain;" />`
-      : `<svg width="185" viewBox="0 0 320 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ? `<img src="${customLogoUrl}" alt="Logo Telkom" style="height: 52px; object-fit: contain;" />`
+      : `<svg width="160" viewBox="0 0 320 115" fill="none" xmlns="http://www.w3.org/2000/svg">
           <text x="195" y="48" text-anchor="end" fill="#4D4D4F" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="31" letter-spacing="-0.8">Telkom</text>
           <text x="195" y="76" text-anchor="end" fill="#4D4D4F" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="29" letter-spacing="-0.8">Indonesia</text>
           <text x="195" y="95" text-anchor="end" fill="#6D6E71" font-family="Arial, Helvetica, sans-serif" font-style="italic" font-size="12.5">the world in your hand</text>
@@ -222,10 +222,10 @@ export default function SuratTagihanPage() {
         </svg>`;
 
     const signatureHtml = signatureDataUrl
-      ? `<div style="height: 68px; display: flex; align-items: center; margin: 2px 0;">
-           <img src="${signatureDataUrl}" alt="Tanda Tangan" style="max-height: 66px; max-width: 190px; object-fit: contain; mix-blend-mode: multiply;" />
+      ? `<div style="height: 52px; display: flex; align-items: center; margin: 1px 0;">
+           <img src="${signatureDataUrl}" alt="Tanda Tangan" style="max-height: 52px; max-width: 165px; object-fit: contain; mix-blend-mode: multiply;" />
          </div>`
-      : `<div style="height: 64px;"></div>`;
+      : `<div style="height: 48px;"></div>`;
 
     const printWindow = window.open('', '_blank');
     const htmlContent = `
@@ -234,72 +234,85 @@ export default function SuratTagihanPage() {
         <head>
           <title>Surat Tagihan - ${namaPelanggan}</title>
           <style>
-            @page { size: A4 portrait; margin: 16mm 20mm 16mm 20mm; }
+            @page {
+              size: A4 portrait;
+              margin: 11mm 17mm 10mm 17mm;
+            }
+            @media print {
+              html, body {
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+              }
+            }
             body {
               font-family: "Times New Roman", Times, serif;
-              font-size: 11.5pt;
-              line-height: 1.4;
+              font-size: 10.5pt;
+              line-height: 1.28;
               color: #111;
               margin: 0;
               padding: 0;
+              box-sizing: border-box;
             }
             .header-logo {
               display: flex;
               justify-content: flex-end;
               align-items: center;
-              margin-bottom: 10px;
+              margin-bottom: 4px;
             }
-            .meta-block { margin-bottom: 10px; }
-            .meta-block p { margin: 2px 0; }
-            .recipient { margin: 10px 0; }
+            .meta-block { margin-bottom: 6px; }
+            .meta-block p { margin: 1px 0; }
+            .recipient { margin: 6px 0; }
             .recipient p { margin: 1px 0; }
-            .perihal { margin: 10px 0; }
+            .perihal { margin: 7px 0; }
             .perihal span { font-weight: bold; }
             p.paragraph {
               text-align: justify;
-              margin: 8px 0;
+              margin: 6px 0;
             }
             table.billing-table {
               width: 88%;
               border-collapse: collapse;
-              margin: 10px 0 4px 0;
-              font-size: 11pt;
+              margin: 7px 0 3px 0;
+              font-size: 10pt;
             }
             table.billing-table th {
               border: 1px solid #222;
               background-color: #e6e6e6;
-              padding: 6px 10px;
+              padding: 4px 8px;
               font-weight: bold;
               text-align: center;
             }
             .footnote {
-              font-size: 9.5pt;
+              font-size: 9pt;
               font-style: italic;
-              margin-bottom: 10px;
+              margin-bottom: 7px;
             }
             ol.consequences {
-              margin: 5px 0 9px 22px;
+              margin: 3px 0 7px 20px;
               padding: 0;
             }
             ol.consequences li {
-              margin-bottom: 3px;
+              margin-bottom: 2px;
               text-align: justify;
             }
             .pic-qr-row {
               display: flex;
               justify-content: space-between;
               align-items: center;
-              margin: 10px 0;
+              margin: 7px 0;
             }
-            .pic-info { max-width: 75%; }
-            .pic-info p { margin: 2px 0; }
+            .pic-info { max-width: 76%; }
+            .pic-info p { margin: 1px 0; }
             .qr-box img {
-              width: 80px;
-              height: 80px;
+              width: 68px;
+              height: 68px;
               border: 1px solid #ccc;
               padding: 2px;
             }
-            .signature-block { margin-top: 12px; }
+            .signature-block { margin-top: 8px; }
             .gm-name { font-weight: bold; margin: 0; }
             .gm-role { font-weight: bold; margin: 0; }
           </style>
@@ -311,7 +324,7 @@ export default function SuratTagihanPage() {
 
           <div class="meta-block">
             <p>Nomor : ${nomorSurat}</p>
-            <p style="margin-top:8px;">${kotaTanggal}</p>
+            <p style="margin-top:5px;">${kotaTanggal}</p>
           </div>
 
           <div class="recipient">
@@ -342,9 +355,9 @@ export default function SuratTagihanPage() {
             <tbody>
               ${tableBodyHtml}
               <tr>
-                <td style="border: 1px solid #222; padding: 6px 10px; text-align: center; font-weight: bold;">Total</td>
-                <td style="border: 1px solid #222; padding: 6px 10px; text-align: center; font-weight: bold;">${formatRupiahComma(totalTunggakan)}</td>
-                <td style="border: 1px solid #222; padding: 6px 10px;"></td>
+                <td style="border: 1px solid #222; padding: 3.5px 8px; text-align: center; font-weight: bold;">Total</td>
+                <td style="border: 1px solid #222; padding: 3.5px 8px; text-align: center; font-weight: bold;">${formatRupiahComma(totalTunggakan)}</td>
+                <td style="border: 1px solid #222; padding: 3.5px 8px;"></td>
               </tr>
             </tbody>
           </table>
@@ -357,7 +370,7 @@ export default function SuratTagihanPage() {
             Bukalapak, Gojek &amp; LinkAja dan Plasa Telkom.
           </p>
 
-          <p class="paragraph" style="margin-bottom:4px;">
+          <p class="paragraph" style="margin-bottom:2px;">
             Perlu kami sampaikan juga bahwa konsekuensi bagi pelanggan internet Telkom yang mempunyai tunggakan tagihan,
             diantaranya :
           </p>
@@ -410,7 +423,6 @@ export default function SuratTagihanPage() {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
-
   if (!user) return null;
 
   return (
@@ -798,4 +810,5 @@ export default function SuratTagihanPage() {
     </div>
   );
 }
+
 
