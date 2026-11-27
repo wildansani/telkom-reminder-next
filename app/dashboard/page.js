@@ -240,7 +240,38 @@ export default function MainDashboardMenu() {
         </div>
       </div>
 
+              {/* Banner Modul Unggulan: Executive Payment Collection & Analytics */}
+        <div className="max-w-6xl mx-auto px-4 mb-10">
+          <Link
+            href="/dashboard/executive-collection"
+            className="group block bg-gradient-to-r from-slate-900 via-[#800018] to-[#E4002B] rounded-3xl p-6 md:p-7 text-white shadow-xl hover:shadow-2xl transition-all border border-white/15"
+          >
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform">
+                  📊
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-2 bg-amber-400 text-slate-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-1.5">
+                    Executive BI & Field Tracking
+                  </div>
+                  <h3 className="text-xl font-black tracking-tight">
+                    Payment Collection (Caring & Visit) + Grafik & Ranking PIC/AM
+                  </h3>
+                  <p className="text-xs text-red-100 mt-1 max-w-2xl leading-relaxed">
+                    Dashboard analitik eksekutif lengkap dengan Donut Chart distribusi status, grafik perbandingan Caring per Datel, tren Collection Rate vs target 98%, tracking kunjungan Visit, leaderboard kinerja PIC, dan mode Sensor Data presentasi.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-white text-[#E4002B] font-black text-xs px-5 py-3 rounded-xl shadow group-hover:bg-amber-300 group-hover:text-slate-900 transition shrink-0">
+                Buka Executive Analytics ➡️
+              </div>
+            </div>
+          </Link>
+        </div>
+
       <TelkomFooter />
     </div>
   );
 }
+

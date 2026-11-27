@@ -16,6 +16,11 @@ async function ensureIndibizTable() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
+  await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS datel_sto VARCHAR(100) DEFAULT 'Priangan Timur'`;
+  await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS status_caring VARCHAR(50) DEFAULT 'BELUM_CARING'`;
+  await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS status_visit VARCHAR(50) DEFAULT 'BELUM_VISIT'`;
+  await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS umur_tunggakan VARCHAR(50) DEFAULT '1 Bulan'`;
+  await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS pic_petugas VARCHAR(100) DEFAULT 'Tim Billing'`;
 }
 
 export async function GET(request) {
@@ -44,7 +49,7 @@ export async function POST(request) {
     await ensureIndibizTable();
     const body = await request.json();
 
-    // Mode Bulk Import (Array items sekaligus dalam 1 transaksi)
+    // Mode Bulk Import (Array items sekaligus)
     if (Array.isArray(body.items)) {
       let insertedCount = 0;
       const chunkSize = 50;
@@ -53,7 +58,10 @@ export async function POST(request) {
         await Promise.all(
           chunk.map((item) =>
             sql`
-              INSERT INTO indibiz_billing (user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal, status_chat)
+              INSERT INTO indibiz_billing (
+                user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal,
+                status_chat, datel_sto, status_caring, status_visit, umur_tunggakan, pic_petugas
+              )
               VALUES (
                 ${body.userId},
                 ${String(item.nomorLayanan).trim()},
@@ -61,7 +69,12 @@ export async function POST(request) {
                 ${String(item.noWa || '').trim()},
                 ${String(item.periode || '').trim()},
                 ${parseInt(item.nominal) || 0},
-                'BELUM_CHAT'
+                'BELUM_CHAT',
+                ${String(item.datelSto || 'Priangan Timur').trim()},
+                ${String(item.statusCaring || 'BELUM_CARING').trim()},
+                ${String(item.statusVisit || 'BELUM_VISIT').trim()},
+                ${String(item.umurTunggakan || '1 Bulan').trim()},
+                ${String(item.picPetugas || 'Wildan Sani').trim()}
               )
             `
           )
@@ -71,10 +84,17 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Bulk insert sukses', count: insertedCount }, { status: 201 });
     }
 
-    // Mode Single Insert (Manual)
-    const { userId, nomorLayanan, namaPelanggan, noWa, periode, nominal } = body;
+    // Mode Single Insert
+    const {
+      userId, nomorLayanan, namaPelanggan, noWa, periode, nominal,
+      datelSto, statusCaring, statusVisit, umurTunggakan, picPetugas
+    } = body;
+
     const inserted = await sql`
-      INSERT INTO indibiz_billing (user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal, status_chat)
+      INSERT INTO indibiz_billing (
+        user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal,
+        status_chat, datel_sto, status_caring, status_visit, umur_tunggakan, pic_petugas
+      )
       VALUES (
         ${userId},
         ${String(nomorLayanan).trim()},
@@ -82,7 +102,12 @@ export async function POST(request) {
         ${String(noWa || '').trim()},
         ${String(periode || '').trim()},
         ${parseInt(nominal) || 0},
-        'BELUM_CHAT'
+        'BELUM_CHAT',
+        ${String(datelSto || 'Priangan Timur').trim()},
+        ${String(statusCaring || 'BELUM_CARING').trim()},
+        ${String(statusVisit || 'BELUM_VISIT').trim()},
+        ${String(umurTunggakan || '1 Bulan').trim()},
+        ${String(picPetugas || 'Wildan Sani').trim()}
       )
       RETURNING *
     `;
@@ -96,7 +121,10 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     await ensureIndibizTable();
-    const { id, nomorLayanan, namaPelanggan, noWa, periode, nominal, statusChat } = await request.json();
+    const {
+      id, nomorLayanan, namaPelanggan, noWa, periode, nominal, statusChat,
+      datelSto, statusCaring, statusVisit, umurTunggakan, picPetugas
+    } = await request.json();
 
     if (!id) {
       return NextResponse.json({ message: 'ID diperlukan' }, { status: 400 });
@@ -109,7 +137,12 @@ export async function PUT(request) {
           no_wa = ${String(noWa || '').trim()},
           periode = ${String(periode || '').trim()},
           nominal = ${parseInt(nominal) || 0},
-          status_chat = ${statusChat || 'BELUM_CHAT'}
+          status_chat = ${statusChat || 'BELUM_CHAT'},
+          datel_sto = ${String(datelSto || 'Priangan Timur').trim()},
+          status_caring = ${String(statusCaring || 'BELUM_CARING').trim()},
+          status_visit = ${String(statusVisit || 'BELUM_VISIT').trim()},
+          umur_tunggakan = ${String(umurTunggakan || '1 Bulan').trim()},
+          pic_petugas = ${String(picPetugas || 'Wildan Sani').trim()}
       WHERE id = ${id}
       RETURNING *
     `;
@@ -141,5 +174,3 @@ export async function DELETE(request) {
     return NextResponse.json({ message: 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
-
-
