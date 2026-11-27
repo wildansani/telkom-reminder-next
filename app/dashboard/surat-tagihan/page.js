@@ -152,6 +152,7 @@ export default function SuratTagihanPage() {
       setNamaPelanggan(found.nama_pelanggan);
       setNomorLayanan(found.nomor_layanan);
       if (found.alamat) setAlamatPelanggan(found.alamat);
+      if (found.alamat) setAlamatPelanggan(found.alamat);
       if (found.nominal && Number(found.nominal) > 0) {
         setRows([
           {
@@ -811,6 +812,7 @@ export default function SuratTagihanPage() {
     </div>
   );
 }
+
 
 
 

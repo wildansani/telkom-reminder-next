@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { parseTelkomWorkbook } from '../../../lib/telkomExcelParser';
 
 export default function ExecutiveCollectionPage() {
   const [user, setUser] = useState(null);
@@ -243,67 +244,10 @@ export default function ExecutiveCollectionPage() {
     reader.onload = async (evt) => {
       const bstr = evt.target.result;
       const wb = window.XLSX.read(bstr, { type: 'binary' });
-      const existingIds = new Set(records.map((c) => String(c.nomor_layanan).trim()));
-      const itemsToInsert = [];
+      const itemsToSync = parseTelkomWorkbook(window.XLSX, wb, user.nama_lengkap, 'Tagihan Berjalan');
 
-      for (const sheetName of wb.SheetNames) {
-        const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
-        for (const cols of rows) {
-          if (!Array.isArray(cols) || cols.length === 0) continue;
-          const cleanCols = cols.map((c) => String(c ?? '').trim());
-          const joinedLower = cleanCols.join(' ').toLowerCase();
-          if (joinedLower.includes('nomor layanan') || joinedLower.includes('nama pelanggan')) continue;
-
-          let nomor = '';
-          let nama = '';
-          let wa = '';
-          let nominal = 0;
-          let datel = 'Priangan Timur';
-          let pic = user.nama_lengkap;
-
-          if (cleanCols.length >= 3 && /^(unpaid|paid|partial|lunas|belum)/i.test(cleanCols[0])) {
-            nomor = cleanCols[1].replace(/\D/g, '');
-            nama = cleanCols[2];
-            wa = cleanCols[3] || '';
-            nominal = parseInt(String(cleanCols[4] || '0').replace(/\D/g, ''), 10) || 0;
-            if (cleanCols[5]) datel = cleanCols[5];
-            if (cleanCols[6]) pic = cleanCols[6];
-          } else {
-            for (const val of cleanCols) {
-              if (!val) continue;
-              const digits = val.replace(/\D/g, '');
-              if (!nomor && digits.length >= 9 && digits.length <= 16 && !/^(08|628|8)\d{8,12}$/.test(digits)) {
-                nomor = digits;
-              } else if (!wa && (/^(08|628|8)\d{7,13}/.test(digits) || val.includes(';'))) {
-                wa = val;
-              } else if (!nama && /[a-zA-Z]{2,}/.test(val) && !/^(unpaid|paid|partial|lunas)$/i.test(val)) {
-                nama = val;
-              }
-            }
-          }
-
-          if (wa) {
-            const firstWa = wa.split(/[;,/]/)[0].replace(/\D/g, '');
-            wa = firstWa.startsWith('8') ? '0' + firstWa : firstWa;
-          }
-
-          if (nomor && nama && !existingIds.has(nomor)) {
-            existingIds.add(nomor);
-            itemsToInsert.push({
-              nomorLayanan: String(nomor),
-              namaPelanggan: String(nama).replace(/\s+/g, ' '),
-              noWa: String(wa),
-              periode: 'Tagihan Berjalan',
-              nominal,
-              datelSto: datel,
-              picPetugas: pic,
-            });
-          }
-        }
-      }
-
-      if (itemsToInsert.length === 0) {
-        alert('⚠️ Semua nomor layanan di file ini sudah tersinkron di database.');
+      if (itemsToSync.length === 0) {
+        alert('⚠️ Tidak ada baris SND / pelanggan valid yang terbaca dari file.');
         e.target.value = '';
         return;
       }
@@ -311,18 +255,19 @@ export default function ExecutiveCollectionPage() {
       const res = await fetch('/api/indibiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, items: itemsToInsert }),
+        body: JSON.stringify({ userId: user.id, items: itemsToSync, upsert: true }),
       });
 
       if (res.ok) {
-        alert(`✅ Berhasil menyinkronkan ${itemsToInsert.length} data baru ke seluruh modul!`);
+        alert(`🚀 Berhasil menyinkronkan ${itemsToSync.length} data SND (Alamat, STO, Datel, Tagihan, PIC) ke seluruh modul!`);
         loadAllAnalyticsData(user.id);
+      } else {
+        alert('❌ Gagal menyinkronkan data ke database.');
       }
       e.target.value = '';
     };
     reader.readAsBinaryString(file);
   };
-
   const exportFullPortalBackup = () => {
     if (!window.XLSX) return;
     const wb = window.XLSX.utils.book_new();
@@ -1115,4 +1060,5 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
+
 
