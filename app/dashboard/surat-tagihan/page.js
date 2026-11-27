@@ -3,6 +3,45 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Komponen SVG Logo Telkom Indonesia ("the world in your hand") identik dengan kop surat resmi
+function TelkomHandLogoSvg({ width = 175 }) {
+  return (
+    <svg width={width} viewBox="0 0 320 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Teks Telkom Indonesia */}
+      <text x="195" y="48" textAnchor="end" fill="#4D4D4F" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="31" letterSpacing="-0.8">
+        Telkom
+      </text>
+      <text x="195" y="76" textAnchor="end" fill="#4D4D4F" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="29" letterSpacing="-0.8">
+        Indonesia
+      </text>
+      <text x="195" y="95" textAnchor="end" fill="#6D6E71" fontFamily="Arial, Helvetica, sans-serif" fontStyle="italic" fontSize="12.5">
+        the world in your hand
+      </text>
+
+      {/* Simbol Tangan & Lengkungan Merah Telkom di sebelah kanan */}
+      <g transform="translate(205, 8)">
+        {/* Jari-jari tangan merah */}
+        <path d="M36 6 C38 2, 43 3, 42 8 L37 28 L31 27 Z" fill="#E4002B" />
+        <path d="M50 3 C53 0, 58 2, 56 7 L47 29 L41 27 Z" fill="#E4002B" />
+        <path d="M64 7 C68 4, 72 7, 69 12 L56 32 L51 29 Z" fill="#E4002B" />
+        <path d="M76 16 C80 14, 83 18, 79 22 L63 38 L59 34 Z" fill="#E4002B" />
+        <path d="M21 15 C22 11, 27 11, 27 16 L28 33 L22 33 Z" fill="#E4002B" />
+
+        {/* Lengkungan telapak & bola dunia */}
+        <path
+          d="M14 48 C14 31, 29 22, 48 24 C66 26, 79 40, 77 57 C75 72, 62 82, 46 82 C36 82, 27 77, 22 69 C28 73, 36 75, 44 74 C57 72, 66 62, 65 49 C64 37, 53 30, 41 31 C29 32, 21 41, 21 53 C21 58, 23 63, 26 67 C18 62, 14 55, 14 48 Z"
+          fill="#E4002B"
+        />
+        {/* Aksen bayangan abu-abu khas Telkom */}
+        <path
+          d="M24 66 C32 76, 48 80, 61 73 C72 67, 78 55, 76 43 C81 55, 77 70, 65 79 C52 88, 34 86, 24 74 Z"
+          fill="#808285"
+        />
+      </g>
+    </svg>
+  );
+}
+
 export default function SuratTagihanPage() {
   const [user, setUser] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -27,6 +66,10 @@ export default function SuratTagihanPage() {
   const [namaGm, setNamaGm] = useState('Nugroho Setio Budi');
   const [jabatanGm, setJabatanGm] = useState('GM Witel Priangan Timur');
 
+  // State Upload Foto Tanda Tangan (TTD) & Opsional Custom Logo
+  const [signatureDataUrl, setSignatureDataUrl] = useState('');
+  const [customLogoUrl, setCustomLogoUrl] = useState('');
+
   // Baris Tabel Rincian Tunggakan (Dinamis)
   const [rows, setRows] = useState([
     { bulan: 'Agustus 2026', jumlah: '763000', keterangan: 'Pemakaian bulan Mei 2026' },
@@ -45,6 +88,13 @@ export default function SuratTagihanPage() {
       setUser(parsedUser);
       fetchCustomers(parsedUser.id);
     }
+
+    // Muat TTD & Logo tersimpan di browser jika pernah di-upload sebelumnya
+    const savedTtd = localStorage.getItem('telkom_gm_signature');
+    if (savedTtd) setSignatureDataUrl(savedTtd);
+
+    const savedLogo = localStorage.getItem('telkom_custom_logo');
+    if (savedLogo) setCustomLogoUrl(savedLogo);
   }, []);
 
   const fetchCustomers = async (userId) => {
@@ -57,6 +107,42 @@ export default function SuratTagihanPage() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  // Handler Upload Foto TTD (Otomatis simpan ke localStorage agar tidak perlu upload berulang kali)
+  const handleUploadSignature = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const base64 = evt.target.result;
+      setSignatureDataUrl(base64);
+      localStorage.setItem('telkom_gm_signature', base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveSignature = () => {
+    setSignatureDataUrl('');
+    localStorage.removeItem('telkom_gm_signature');
+  };
+
+  // Handler Upload Logo Custom (Opsional jika ingin pakai file gambar sendiri)
+  const handleUploadLogo = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const base64 = evt.target.result;
+      setCustomLogoUrl(base64);
+      localStorage.setItem('telkom_custom_logo', base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetLogo = () => {
+    setCustomLogoUrl('');
+    localStorage.removeItem('telkom_custom_logo');
   };
 
   const handleSelectCustomer = (custId) => {
@@ -118,6 +204,29 @@ export default function SuratTagihanPage() {
       )
       .join('');
 
+    const logoHtml = customLogoUrl
+      ? `<img src="${customLogoUrl}" alt="Logo Telkom" style="height: 64px; object-fit: contain;" />`
+      : `<svg width="185" viewBox="0 0 320 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="195" y="48" text-anchor="end" fill="#4D4D4F" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="31" letter-spacing="-0.8">Telkom</text>
+          <text x="195" y="76" text-anchor="end" fill="#4D4D4F" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="29" letter-spacing="-0.8">Indonesia</text>
+          <text x="195" y="95" text-anchor="end" fill="#6D6E71" font-family="Arial, Helvetica, sans-serif" font-style="italic" font-size="12.5">the world in your hand</text>
+          <g transform="translate(205, 8)">
+            <path d="M36 6 C38 2, 43 3, 42 8 L37 28 L31 27 Z" fill="#E4002B" />
+            <path d="M50 3 C53 0, 58 2, 56 7 L47 29 L41 27 Z" fill="#E4002B" />
+            <path d="M64 7 C68 4, 72 7, 69 12 L56 32 L51 29 Z" fill="#E4002B" />
+            <path d="M76 16 C80 14, 83 18, 79 22 L63 38 L59 34 Z" fill="#E4002B" />
+            <path d="M21 15 C22 11, 27 11, 27 16 L28 33 L22 33 Z" fill="#E4002B" />
+            <path d="M14 48 C14 31, 29 22, 48 24 C66 26, 79 40, 77 57 C75 72, 62 82, 46 82 C36 82, 27 77, 22 69 C28 73, 36 75, 44 74 C57 72, 66 62, 65 49 C64 37, 53 30, 41 31 C29 32, 21 41, 21 53 C21 58, 23 63, 26 67 C18 62, 14 55, 14 48 Z" fill="#E4002B" />
+            <path d="M24 66 C32 76, 48 80, 61 73 C72 67, 78 55, 76 43 C81 55, 77 70, 65 79 C52 88, 34 86, 24 74 Z" fill="#808285" />
+          </g>
+        </svg>`;
+
+    const signatureHtml = signatureDataUrl
+      ? `<div style="height: 68px; display: flex; align-items: center; margin: 2px 0;">
+           <img src="${signatureDataUrl}" alt="Tanda Tangan" style="max-height: 66px; max-width: 190px; object-fit: contain; mix-blend-mode: multiply;" />
+         </div>`
+      : `<div style="height: 64px;"></div>`;
+
     const printWindow = window.open('', '_blank');
     const htmlContent = `
       <!DOCTYPE html>
@@ -125,11 +234,11 @@ export default function SuratTagihanPage() {
         <head>
           <title>Surat Tagihan - ${namaPelanggan}</title>
           <style>
-            @page { size: A4 portrait; margin: 18mm 20mm 18mm 20mm; }
+            @page { size: A4 portrait; margin: 16mm 20mm 16mm 20mm; }
             body {
               font-family: "Times New Roman", Times, serif;
               font-size: 11.5pt;
-              line-height: 1.42;
+              line-height: 1.4;
               color: #111;
               margin: 0;
               padding: 0;
@@ -138,55 +247,38 @@ export default function SuratTagihanPage() {
               display: flex;
               justify-content: flex-end;
               align-items: center;
-              margin-bottom: 14px;
+              margin-bottom: 10px;
             }
-            .telkom-brand {
-              text-align: right;
-              font-family: Arial, Helvetica, sans-serif;
-            }
-            .telkom-title {
-              font-size: 20px;
-              font-weight: 900;
-              color: #333;
-              line-height: 1.05;
-              letter-spacing: -0.5px;
-            }
-            .telkom-tagline {
-              font-size: 9px;
-              font-style: italic;
-              color: #666;
-              margin-top: 2px;
-            }
-            .meta-block { margin-bottom: 12px; }
+            .meta-block { margin-bottom: 10px; }
             .meta-block p { margin: 2px 0; }
-            .recipient { margin: 12px 0; }
+            .recipient { margin: 10px 0; }
             .recipient p { margin: 1px 0; }
-            .perihal { margin: 12px 0; font-weight: normal; }
+            .perihal { margin: 10px 0; }
             .perihal span { font-weight: bold; }
             p.paragraph {
               text-align: justify;
-              margin: 9px 0;
+              margin: 8px 0;
             }
             table.billing-table {
               width: 88%;
               border-collapse: collapse;
-              margin: 12px 0 4px 0;
+              margin: 10px 0 4px 0;
               font-size: 11pt;
             }
             table.billing-table th {
               border: 1px solid #222;
               background-color: #e6e6e6;
-              padding: 7px 10px;
+              padding: 6px 10px;
               font-weight: bold;
               text-align: center;
             }
             .footnote {
               font-size: 9.5pt;
               font-style: italic;
-              margin-bottom: 12px;
+              margin-bottom: 10px;
             }
             ol.consequences {
-              margin: 6px 0 10px 22px;
+              margin: 5px 0 9px 22px;
               padding: 0;
             }
             ol.consequences li {
@@ -197,48 +289,24 @@ export default function SuratTagihanPage() {
               display: flex;
               justify-content: space-between;
               align-items: center;
-              margin: 12px 0;
+              margin: 10px 0;
             }
-            .pic-info {
-              max-width: 75%;
-            }
-            .pic-info p {
-              margin: 2px 0;
-            }
+            .pic-info { max-width: 75%; }
+            .pic-info p { margin: 2px 0; }
             .qr-box img {
-              width: 82px;
-              height: 82px;
+              width: 80px;
+              height: 80px;
               border: 1px solid #ccc;
               padding: 2px;
             }
-            .signature-block {
-              margin-top: 16px;
-            }
-            .signature-space {
-              height: 58px;
-            }
-            .gm-name {
-              font-weight: bold;
-              margin: 0;
-            }
-            .gm-role {
-              font-weight: bold;
-              margin: 0;
-            }
+            .signature-block { margin-top: 12px; }
+            .gm-name { font-weight: bold; margin: 0; }
+            .gm-role { font-weight: bold; margin: 0; }
           </style>
         </head>
         <body>
           <div class="header-logo">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <div class="telkom-brand">
-                <div class="telkom-title">Telkom<br/>Indonesia</div>
-                <div class="telkom-tagline">the world in your hand</div>
-              </div>
-              <svg width="46" height="46" viewBox="0 0 64 64" fill="none">
-                <path d="M32 6C17.6 6 6 17.6 6 32c0 9.8 5.4 18.3 13.4 22.8L32 32l12.6 22.8C52.6 50.3 58 41.8 58 32 58 17.6 46.4 6 32 6z" fill="#E4002B"/>
-                <circle cx="32" cy="24" r="9" fill="#FFFFFF"/>
-              </svg>
-            </div>
+            ${logoHtml}
           </div>
 
           <div class="meta-block">
@@ -323,7 +391,7 @@ export default function SuratTagihanPage() {
 
           <div class="signature-block">
             <p style="margin:0;"><b>Hormat Kami,</b></p>
-            <div class="signature-space"></div>
+            ${signatureHtml}
             <p class="gm-name">${namaGm}</p>
             <p class="gm-role">${jabatanGm}</p>
           </div>
@@ -332,7 +400,7 @@ export default function SuratTagihanPage() {
             window.onload = function() {
               setTimeout(function() {
                 window.print();
-              }, 400);
+              }, 450);
             };
           </script>
         </body>
@@ -371,10 +439,44 @@ export default function SuratTagihanPage() {
         {/* Panel Kiri (5 Kolom): Form Input Dinamis */}
         <div className="lg:col-span-5 bg-white rounded-xl shadow p-5 space-y-4 h-fit">
           <div className="border-b pb-3">
-            <h3 className="font-bold text-gray-800 text-sm">📝 Data Surat & Rincian Tunggakan</h3>
+            <h3 className="font-bold text-gray-800 text-sm">📝 Data Surat, TTD & Rincian Tunggakan</h3>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              Pilih dari master pelanggan Indibiz atau isi manual, lalu klik <b>Cetak / Simpan PDF</b>.
+              Pilih pelanggan, upload foto TTD (otomatis tersimpan), lalu cetak ke PDF.
             </p>
+          </div>
+
+          {/* Box Upload Foto Tanda Tangan (TTD) */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-amber-900">✍️ Foto Tanda Tangan (TTD) GM</span>
+              {signatureDataUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveSignature}
+                  className="text-[11px] text-red-600 font-bold hover:underline"
+                >
+                  Hapus TTD
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="cursor-pointer bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition shrink-0">
+                📤 Upload Foto TTD
+                <input type="file" accept="image/*" onChange={handleUploadSignature} className="hidden" />
+              </label>
+
+              {signatureDataUrl ? (
+                <div className="bg-white border rounded-lg px-2 py-1 flex items-center gap-2">
+                  <img src={signatureDataUrl} alt="Preview TTD" className="h-9 object-contain" />
+                  <span className="text-[10px] text-emerald-700 font-bold">✅ TTD Terpasang</span>
+                </div>
+              ) : (
+                <span className="text-[11px] text-amber-800">
+                  Belum ada TTD. Upload foto TTD (latar putih/transparan) agar otomatis masuk ke surat.
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Pilih dari Master Pelanggan */}
@@ -551,6 +653,22 @@ export default function SuratTagihanPage() {
             </div>
           </div>
 
+          {/* Opsional Ganti File Logo Kop */}
+          <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t">
+            <span>Kop Logo: {customLogoUrl ? 'Custom Upload' : 'Telkom Indonesia (Default)'}</span>
+            <div className="flex items-center gap-2">
+              <label className="cursor-pointer text-blue-600 font-bold hover:underline">
+                Ganti File Logo
+                <input type="file" accept="image/*" onChange={handleUploadLogo} className="hidden" />
+              </label>
+              {customLogoUrl && (
+                <button type="button" onClick={handleResetLogo} className="text-red-600 font-bold hover:underline">
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handlePrintPDF}
@@ -566,19 +684,13 @@ export default function SuratTagihanPage() {
             className="bg-white shadow-2xl text-gray-900 w-full max-w-[720px] p-8 md:p-12 text-[12px] leading-relaxed"
             style={{ fontFamily: '"Times New Roman", Times, serif' }}
           >
-            {/* Kop Telkom Kanan Atas */}
-            <div className="flex justify-end items-center mb-4">
-              <div className="flex items-center gap-2">
-                <div className="text-right font-sans">
-                  <div className="text-lg font-black text-gray-800 leading-none">
-                    Telkom<br />Indonesia
-                  </div>
-                  <div className="text-[9px] italic text-gray-500 mt-0.5">the world in your hand</div>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-[#E4002B] flex items-center justify-center text-white font-black text-lg">
-                  T
-                </div>
-              </div>
+            {/* Kop Telkom Kanan Atas (Simbol Tangan + Telkom Indonesia) */}
+            <div className="flex justify-end items-center mb-3">
+              {customLogoUrl ? (
+                <img src={customLogoUrl} alt="Logo Telkom" className="h-14 object-contain" />
+              ) : (
+                <TelkomHandLogoSvg width={175} />
+              )}
             </div>
 
             <p>Nomor : {nomorSurat}</p>
@@ -666,7 +778,17 @@ export default function SuratTagihanPage() {
 
             <div className="mt-4">
               <p className="font-bold">Hormat Kami,</p>
-              <div className="h-14"></div>
+              {signatureDataUrl ? (
+                <div className="h-16 flex items-center my-0.5">
+                  <img
+                    src={signatureDataUrl}
+                    alt="Tanda Tangan GM"
+                    className="max-h-16 max-w-[180px] object-contain mix-blend-multiply"
+                  />
+                </div>
+              ) : (
+                <div className="h-14"></div>
+              )}
               <p className="font-bold">{namaGm}</p>
               <p className="font-bold">{jabatanGm}</p>
             </div>
