@@ -61,10 +61,10 @@ export default function MainDashboardMenu() {
   });
 
   return (
-    <div className="bg-slate-50 min-h-screen flex flex-col justify-between">
+    <div className="bg-gradient-to-br from-rose-50 via-red-50/70 to-slate-200 min-h-screen flex flex-col justify-between">
       <div>
         {/* Top Navbar */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <header className="bg-white/95 backdrop-blur-md border-b border-red-100 sticky top-0 z-30 shadow-sm">
           <div className="max-w-6xl mx-auto px-4 py-3.5 flex justify-between items-center">
             <TelkomLogo />
             <div className="flex items-center gap-3">
@@ -74,7 +74,7 @@ export default function MainDashboardMenu() {
               </div>
               <button
                 onClick={handleLogout}
-                className="text-xs bg-slate-900 text-white font-bold px-4 py-2 rounded-xl hover:bg-[#E4002B] transition shadow-sm"
+                className="text-xs bg-gradient-to-r from-[#E4002B] to-slate-900 text-white font-bold px-4 py-2 rounded-xl hover:opacity-90 transition shadow-sm"
               >
                 Logout
               </button>
@@ -119,121 +119,121 @@ export default function MainDashboardMenu() {
           </div>
         </div>
 
-        {/* Pilihan Modul Utama (3 Kartu) */}
-        <div className="max-w-6xl mx-auto px-4 mt-8">
+        {/* Pilihan Modul Utama (4 Kartu Tema Merah Gradasi) */}
+        <div className="max-w-6xl mx-auto px-4 mt-8 mb-10">
           <div className="flex items-center gap-2 mb-4">
             <span className="w-1.5 h-5 bg-[#E4002B] rounded-full"></span>
             <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Pilih Modul Operasional</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Modul 1: Reminder Status Penawaran */}
             <Link
               href="/dashboard/reminder"
-              className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-[#E4002B] overflow-hidden flex flex-col justify-between"
+              className="group bg-gradient-to-br from-[#E4002B] via-[#B80022] to-slate-900 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 border border-white/15 overflow-hidden flex flex-col justify-between text-white"
             >
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#E4002B] flex items-center justify-center text-2xl group-hover:bg-[#E4002B] group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
                     🚀
                   </div>
                   {stats.urgentOffers > 0 && (
-                    <span className="bg-red-100 text-[#E4002B] text-[10px] font-extrabold px-2.5 py-1 rounded-full animate-pulse">
+                    <span className="bg-amber-400 text-slate-900 text-[10px] font-extrabold px-2.5 py-1 rounded-full animate-pulse">
                       ⚠️ {stats.urgentOffers} Urgent
                     </span>
                   )}
                 </div>
-                <h3 className="text-lg font-black text-slate-800 group-hover:text-[#E4002B] transition-colors">
+                <h3 className="text-lg font-black text-white">
                   Reminder Status Penawaran
                 </h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                <p className="text-xs text-red-100/90 mt-2 leading-relaxed">
                   Kelola aging proyek, filter broadcast per PIC, pantau status prospek (Won/Lost), dan kirim reminder langsung ke Telegram.
                 </p>
               </div>
-              <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex justify-between items-center group-hover:bg-red-50/50 transition-colors">
-                <span className="text-xs font-bold text-slate-600 group-hover:text-[#E4002B]">Buka Modul Penawaran</span>
-                <span className="text-sm font-bold text-[#E4002B] group-hover:translate-x-1 transition-transform">➡️</span>
+              <div className="bg-black/25 px-6 py-3.5 border-t border-white/10 flex justify-between items-center group-hover:bg-black/40 transition-colors">
+                <span className="text-xs font-bold text-white">Buka Modul Penawaran</span>
+                <span className="text-sm font-bold text-amber-300 group-hover:translate-x-1 transition-transform">➡️</span>
               </div>
             </Link>
 
             {/* Modul 2: Telkom Collection & Bukpot */}
             <Link
               href="/dashboard/collection"
-              className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-slate-800 overflow-hidden flex flex-col justify-between"
+              className="group bg-gradient-to-br from-[#E4002B] via-[#B80022] to-slate-900 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 border border-white/15 overflow-hidden flex flex-col justify-between text-white"
             >
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-800 flex items-center justify-center text-2xl group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
                     💰
                   </div>
-                  <span className="bg-emerald-100 text-emerald-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full">
+                  <span className="bg-emerald-400/25 border border-emerald-300/40 text-emerald-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full">
                     ✅ {stats.paidBills} Lunas
                   </span>
                 </div>
-                <h3 className="text-lg font-black text-slate-800 group-hover:text-[#E4002B] transition-colors">
+                <h3 className="text-lg font-black text-white">
                   Telkom Collection & Bukpot
                 </h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                <p className="text-xs text-red-100/90 mt-2 leading-relaxed">
                   Kelola piutang bulan berjalan, tunggakan, dan Bukpot PPh. Filter broadcast per PIC/AM serta pantau Recovery Rate.
                 </p>
               </div>
-              <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex justify-between items-center group-hover:bg-slate-100 transition-colors">
-                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900">Buka Modul Collection</span>
-                <span className="text-sm font-bold text-slate-900 group-hover:translate-x-1 transition-transform">➡️</span>
+              <div className="bg-black/25 px-6 py-3.5 border-t border-white/10 flex justify-between items-center group-hover:bg-black/40 transition-colors">
+                <span className="text-xs font-bold text-white">Buka Modul Collection</span>
+                <span className="text-sm font-bold text-amber-300 group-hover:translate-x-1 transition-transform">➡️</span>
               </div>
             </Link>
 
             {/* Modul 3: Indibiz Billing Reminder */}
             <Link
               href="/dashboard/indibiz"
-              className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-emerald-600 overflow-hidden flex flex-col justify-between"
+              className="group bg-gradient-to-br from-[#E4002B] via-[#B80022] to-slate-900 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 border border-white/15 overflow-hidden flex flex-col justify-between text-white"
             >
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
                     💬
                   </div>
-                  <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full">
+                  <span className="bg-amber-400/25 border border-amber-300/40 text-amber-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full">
                     ⏳ {stats.indibizPending} Belum Chat
                   </span>
                 </div>
-                <h3 className="text-lg font-black text-slate-800 group-hover:text-emerald-700 transition-colors">
+                <h3 className="text-lg font-black text-white">
                   Indibiz Billing Reminder
                 </h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                <p className="text-xs text-red-100/90 mt-2 leading-relaxed">
                   Auto-generator chat tagihan Indibiz (Billing Telkom Priangan Timur). Pilih pelanggan dari master data, revisi nominal, dan kirim via WhatsApp.
                 </p>
               </div>
-              <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex justify-between items-center group-hover:bg-emerald-50/60 transition-colors">
-                <span className="text-xs font-bold text-slate-600 group-hover:text-emerald-700">Buka Generator Chat</span>
-                <span className="text-sm font-bold text-emerald-700 group-hover:translate-x-1 transition-transform">➡️</span>
+              <div className="bg-black/25 px-6 py-3.5 border-t border-white/10 flex justify-between items-center group-hover:bg-black/40 transition-colors">
+                <span className="text-xs font-bold text-white">Buka Generator Chat</span>
+                <span className="text-sm font-bold text-amber-300 group-hover:translate-x-1 transition-transform">➡️</span>
               </div>
             </Link>
 
             {/* Modul 4: Auto Surat Tagihan Resmi */}
             <Link
               href="/dashboard/surat-tagihan"
-              className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-amber-600 overflow-hidden flex flex-col justify-between"
+              className="group bg-gradient-to-br from-[#E4002B] via-[#B80022] to-slate-900 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 border border-white/15 overflow-hidden flex flex-col justify-between text-white"
             >
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center text-2xl group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
                     📄
                   </div>
-                  <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full">
+                  <span className="bg-white/20 border border-white/30 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full">
                     PDF A4 Resmi
                   </span>
                 </div>
-                <h3 className="text-lg font-black text-slate-800 group-hover:text-amber-700 transition-colors">
+                <h3 className="text-lg font-black text-white">
                   Auto Surat Tagihan
                 </h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Buat surat resmi Penyelesaian Tunggakan Layanan Telkom (Witel Priangan Timur) lengkap dengan tabel bulan, QR bayar, dan cetak PDF.
+                <p className="text-xs text-red-100/90 mt-2 leading-relaxed">
+                  Buat surat resmi Penyelesaian Tunggakan Layanan Telkom (Witel Priangan Timur) lengkap dengan tabel bulan, upload TTD, QR bayar, dan cetak PDF.
                 </p>
               </div>
-              <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex justify-between items-center group-hover:bg-amber-50/60 transition-colors">
-                <span className="text-xs font-bold text-slate-600 group-hover:text-amber-700">Buat Surat Tagihan</span>
-                <span className="text-sm font-bold text-amber-700 group-hover:translate-x-1 transition-transform">➡️</span>
+              <div className="bg-black/25 px-6 py-3.5 border-t border-white/10 flex justify-between items-center group-hover:bg-black/40 transition-colors">
+                <span className="text-xs font-bold text-white">Buat Surat Tagihan</span>
+                <span className="text-sm font-bold text-amber-300 group-hover:translate-x-1 transition-transform">➡️</span>
               </div>
             </Link>
           </div>
@@ -244,4 +244,3 @@ export default function MainDashboardMenu() {
     </div>
   );
 }
-

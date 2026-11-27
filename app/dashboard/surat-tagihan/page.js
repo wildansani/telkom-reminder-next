@@ -68,7 +68,7 @@ export default function SuratTagihanPage() {
 
   // State Upload Foto Tanda Tangan (TTD) & Opsional Custom Logo
   const [signatureDataUrl, setSignatureDataUrl] = useState('');
-  const [customLogoUrl, setCustomLogoUrl] = useState('');
+  const [customLogoUrl, setCustomLogoUrl] = useState('/logo-telkom.png');
 
   // Baris Tabel Rincian Tunggakan (Dinamis)
   const [rows, setRows] = useState([
@@ -142,7 +142,7 @@ export default function SuratTagihanPage() {
 
   const handleResetLogo = () => {
     setCustomLogoUrl('');
-    localStorage.removeItem('telkom_custom_logo');
+    setCustomLogoUrl('/logo-telkom.png'); localStorage.removeItem('telkom_custom_logo');
   };
 
   const handleSelectCustomer = (custId) => {
@@ -414,8 +414,8 @@ export default function SuratTagihanPage() {
   if (!user) return null;
 
   return (
-    <div className="bg-gray-100 min-h-screen pb-12">
-      <header className="bg-gradient-to-r from-[#E4002B] to-[#99001D] text-white shadow-md">
+    <div className="bg-gradient-to-br from-rose-50 via-red-50/60 to-slate-200 min-h-screen pb-12">
+      <header className="bg-gradient-to-r from-[#E4002B] via-[#B80022] to-slate-900 text-white shadow-md">
         <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-black tracking-wide">AUTO SURAT TAGIHAN TELKOM</h1>
@@ -798,3 +798,4 @@ export default function SuratTagihanPage() {
     </div>
   );
 }
+

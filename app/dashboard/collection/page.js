@@ -289,8 +289,8 @@ Link monitoring CYC Priti : https://bit.ly/Monit_CYC_Priti`
   const topAmList = Object.entries(amMap).sort((a, b) => b[1] - a[1]);
 
   return (
-    <div className="bg-gray-100 min-h-screen pb-10">
-      <header className="bg-gradient-to-r from-[#E4002B] to-[#99001D] text-white shadow-md">
+    <div className="bg-gradient-to-br from-rose-50 via-red-50/60 to-slate-200 min-h-screen pb-10">
+      <header className="bg-gradient-to-r from-[#E4002B] via-[#B80022] to-slate-900 text-white shadow-md">
         <div className="max-w-6xl mx-auto p-4 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-black tracking-wide">TELKOM COLLECTION</h1>
@@ -345,7 +345,7 @@ Link monitoring CYC Priti : https://bit.ly/Monit_CYC_Priti`
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Keterangan / Bulan (Opsional)</label>
                 <input type="text" placeholder="Contoh: Tggkn Sept, Okt" value={keterangan} onChange={(e)=>setKeterangan(e.target.value)} className="w-full border rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-[#E4002B] outline-none" />
               </div>
-              <button type="submit" className="w-full bg-[#E4002B] text-white font-bold py-2.5 rounded-lg text-xs hover:bg-gradient-to-r from-[#E4002B] to-[#99001D] transition shadow">
+              <button type="submit" className="w-full bg-[#E4002B] text-white font-bold py-2.5 rounded-lg text-xs hover:bg-gradient-to-r from-[#E4002B] via-[#B80022] to-slate-900 transition shadow">
                 + Tambah Tagihan Manual
               </button>
             </form>
@@ -551,4 +551,5 @@ Link monitoring CYC Priti : https://bit.ly/Monit_CYC_Priti`
     </div>
   );
 }
+
 
