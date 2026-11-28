@@ -217,7 +217,8 @@ export default function ExecutiveCollectionPage() {
         alert(`🚀 Berhasil menyinkronkan ${itemsToSync.length} data SND (Alamat, STO, Datel, Tagihan, PIC) ke seluruh modul!`);
         loadAllAnalyticsData(user.id);
       } else {
-        alert('❌ Gagal menyinkronkan data ke database.');
+        const errData = await res.json().catch(() => ({}));
+        alert('❌ Gagal menyinkronkan data ke database: ' + (errData.error || errData.message || res.statusText));
       }
       e.target.value = '';
     };
@@ -1105,3 +1106,4 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
+
