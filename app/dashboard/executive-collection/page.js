@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { parseTelkomWorkbook } from '../../../lib/telkomExcelParser';
+import { uploadItemsInChunks } from '../../../lib/chunkedSync';
 
 export default function ExecutiveCollectionPage() {
   const [user, setUser] = useState(null);
@@ -13,6 +14,7 @@ export default function ExecutiveCollectionPage() {
   // Navigasi Sub-Tab Internal
   const [activeSection, setActiveSection] = useState('RINGKASAN'); // 'RINGKASAN', 'TINDAK_LANJUT', 'KINERJA_PIC', 'INTEGRASI_DATA'
   const [privacyMask, setPrivacyMask] = useState(false);
+  const [syncProgress, setSyncProgress] = useState('');
 
   // Filter Tindak Lanjut
   const [searchTerm, setSearchTerm] = useState('');
@@ -207,18 +209,21 @@ export default function ExecutiveCollectionPage() {
         return;
       }
 
-      const res = await fetch('/api/indibiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, items: itemsToSync, upsert: true }),
-      });
-
-      if (res.ok) {
+      try {
+        setSyncProgress(`Memulai sinkronisasi 0 / ${itemsToSync.length} baris...`);
+        await uploadItemsInChunks({
+          userId: user.id,
+          items: itemsToSync,
+          upsert: true,
+          chunkSize: 200,
+          onProgress: (done, total) => setSyncProgress(`Menyinkronkan ${done} / ${total} data SND...`),
+        });
+        setSyncProgress('');
         alert(`🚀 Berhasil menyinkronkan ${itemsToSync.length} data SND (Alamat, STO, Datel, Tagihan, PIC) ke seluruh modul!`);
         loadAllAnalyticsData(user.id);
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        alert('❌ Gagal menyinkronkan data ke database: ' + (errData.error || errData.message || res.statusText));
+      } catch (err) {
+        setSyncProgress('');
+        alert('❌ ' + err.message);
       }
       e.target.value = '';
     };
@@ -1028,7 +1033,7 @@ export default function ExecutiveCollectionPage() {
                     </p>
                   </div>
                   <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl text-center shadow transition">
-                    Pilih File Excel (.xlsx / .csv)
+                    {syncProgress || 'Pilih File Excel (.xlsx / .csv)'}
                     <input type="file" accept=".xlsx, .xls, .csv" onChange={handleMasterBulkImport} className="hidden" />
                   </label>
                 </div>
@@ -1106,4 +1111,5 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
+
 

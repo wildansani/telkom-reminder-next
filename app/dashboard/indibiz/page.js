@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { parseTelkomWorkbook } from '../../../lib/telkomExcelParser';
+import { uploadItemsInChunks } from '../../../lib/chunkedSync';
 
 export default function IndibizBillingPage() {
   const [user, setUser] = useState(null);
@@ -591,6 +592,7 @@ Billing Telkom Priangan Timur`;
     </div>
   );
 }
+
 
 
 
