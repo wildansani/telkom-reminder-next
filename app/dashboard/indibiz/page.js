@@ -587,34 +587,14 @@ Billing Telkom Priangan Timur`;
                 )}
               </tbody>
             </table>
-  <div className="flex justify-between items-center mt-4">
-    <span className="text-sm text-gray-600">
-      Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredData.length)} dari {filteredData.length} data
-    </span>
-    <div className="flex gap-2">
-      <button 
-        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-        disabled={currentPage === 1}
-        className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-      >
-        Sebelumnya
-      </button>
-      <span className="px-3 py-1">Hal {currentPage} / {totalPages || 1}</span>
-      <button 
-        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-        disabled={currentPage === totalPages || totalPages === 0}
-        className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-      >
-        Selanjutnya
-      </button>
-    </div>
-  </div>
+
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 
 
