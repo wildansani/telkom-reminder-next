@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { parseTelkomWorkbook } from '../../../lib/telkomExcelParser';
-import { parseTelkomWorkbook } from '../../../lib/telkomExcelParser';
 
 export default function IndibizBillingPage() {
   const [user, setUser] = useState(null);
