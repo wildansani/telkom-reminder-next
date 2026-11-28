@@ -83,8 +83,10 @@ export async function POST(request) {
                       no_wa = COALESCE(NULLIF(${wa}, ''), no_wa),
                       periode = ${periode},
                       nominal = ${nominal},
+                      status_chat = COALESCE(NULLIF(${item.statusChat || ''}, ''), status_chat),
                       datel_sto = ${datelSto},
                       status_caring = ${statusCaring},
+                      status_visit = COALESCE(NULLIF(${item.statusVisit || ''}, ''), status_visit),
                       umur_tunggakan = ${umurTunggakan},
                       pic_petugas = ${picPetugas},
                       alamat = COALESCE(NULLIF(${alamat}, ''), alamat),
@@ -206,3 +208,4 @@ export async function DELETE(request) {
     return NextResponse.json({ message: 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
+

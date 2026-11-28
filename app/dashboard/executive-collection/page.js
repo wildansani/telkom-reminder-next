@@ -244,6 +244,120 @@ export default function ExecutiveCollectionPage() {
     reader.onload = async (evt) => {
       const bstr = evt.target.result;
       const wb = window.XLSX.read(bstr, { type: 'binary' });
+      const isMultiSheetBackup =
+        wb.SheetNames.includes('1_Indibiz_&_Collection') ||
+        wb.SheetNames.includes('2_Piutang_&_Bukpot') ||
+        wb.SheetNames.includes('3_Prospek_Penawaran');
+
+      let syncSummary = [];
+
+      if (isMultiSheetBackup) {
+        // Sheet 1: Indibiz & Collection (Caring/Visit/Chat)
+        if (wb.Sheets['1_Indibiz_&_Collection']) {
+          const rows1 = window.XLSX.utils.sheet_to_json(wb.Sheets['1_Indibiz_&_Collection'], { defval: '' });
+          const items1 = rows1
+            .filter((r) => r['Nomor Layanan'] && r['Nama Pelanggan'])
+            .map((r) => ({
+              nomorLayanan: String(r['Nomor Layanan']).trim(),
+              namaPelanggan: String(r['Nama Pelanggan']).trim(),
+              noWa: r['No WhatsApp'] && r['No WhatsApp'] !== '-' ? String(r['No WhatsApp']).trim() : '',
+              nominal: parseInt(String(r['Nominal (Rp)'] || '0').replace(/\D/g, ''), 10) || 0,
+              datelSto: String(r['Datel / STO'] || 'Priangan Timur').trim(),
+              statusChat: String(r['Status Chat'] || 'BELUM_CHAT').trim(),
+              statusCaring: String(r['Status Caring'] || 'BELUM_CARING').trim(),
+              statusVisit: String(r['Status Visit'] || 'BELUM_VISIT').trim(),
+              picPetugas: String(r['PIC Petugas'] || user.nama_lengkap).trim(),
+            }));
+
+          if (items1.length > 0) {
+            await fetch('/api/indibiz', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.id, items: items1, upsert: true }),
+            });
+            syncSummary.push(`${items1.length} Indibiz/Collection`);
+          }
+        }
+
+        // Sheet 2: Piutang & Bukpot
+        if (wb.Sheets['2_Piutang_&_Bukpot']) {
+          const rows2 = window.XLSX.utils.sheet_to_json(wb.Sheets['2_Piutang_&_Bukpot'], { defval: '' });
+          const existingPiutang = new Map(
+            piutangRecords.map((p) => [`${String(p.nama_pelanggan).toUpperCase().trim()}|${String(p.kategori || '').trim()}`, p])
+          );
+          let count2 = 0;
+
+          for (const r of rows2) {
+            const nama = String(r['Nama Pelanggan'] || '').trim();
+            if (!nama) continue;
+            const kategori = String(r['Kategori'] || 'Bulan Berjalan').trim();
+            const nominal = parseInt(String(r['Nominal (Rp)'] || '0').replace(/\D/g, ''), 10) || 0;
+            const statusPembayaran = String(r['Status Pembayaran'] || 'UNPAID').toUpperCase().trim();
+            const picAm = String(r['PIC / AM'] || user.nama_lengkap).trim();
+            const key = `${nama.toUpperCase()}|${kategori}`;
+            const match = existingPiutang.get(key);
+
+            if (match) {
+              await fetch('/api/piutang', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...match, namaPelanggan: nama, kategori, nominal, statusPembayaran, picAm }),
+              });
+            } else {
+              await fetch('/api/piutang', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, namaPelanggan: nama, kategori, nominal, statusPembayaran, picAm }),
+              });
+            }
+            count2++;
+          }
+          if (count2 > 0) syncSummary.push(`${count2} Piutang`);
+        }
+
+        // Sheet 3: Prospek Penawaran
+        if (wb.Sheets['3_Prospek_Penawaran']) {
+          const rows3 = window.XLSX.utils.sheet_to_json(wb.Sheets['3_Prospek_Penawaran'], { defval: '' });
+          const existingOffers = new Map(
+            penawaranRecords.map((o) => [`${String(o.nama_pelanggan).toUpperCase().trim()}|${String(o.nama_layanan || '').trim()}`, o])
+          );
+          let count3 = 0;
+
+          for (const r of rows3) {
+            const nama = String(r['Nama Pelanggan'] || '').trim();
+            if (!nama) continue;
+            const layanan = String(r['Layanan / Proyek'] || '-').trim();
+            const agingHari = parseInt(String(r['Aging (Hari)'] || '0').replace(/\D/g, ''), 10) || 0;
+            const statusProspek = String(r['Status Prospek'] || 'IN_PROGRESS').toUpperCase().trim();
+            const picAm = String(r['PIC / AM'] || user.nama_lengkap).trim();
+            const key = `${nama.toUpperCase()}|${layanan}`;
+            const match = existingOffers.get(key);
+
+            if (match) {
+              await fetch('/api/penawaran', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...match, namaPelanggan: nama, namaLayanan: layanan, agingHari, statusProspek, picAm }),
+              });
+            } else {
+              await fetch('/api/penawaran', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, namaPelanggan: nama, namaLayanan: layanan, agingHari, statusProspek, picAm }),
+              });
+            }
+            count3++;
+          }
+          if (count3 > 0) syncSummary.push(`${count3} Penawaran`);
+        }
+
+        alert(`✅ Sinkronisasi Multi-Sheet Selesai! Berhasil memperbarui: ${syncSummary.join(', ') || '0 baris'}.`);
+        loadAllAnalyticsData(user.id);
+        e.target.value = '';
+        return;
+      }
+
+      // Mode Standard: Excel 44-Kolom Telkom (SND, NAMA, ALAMAT, STO_DESC, DATEL, TOTAL TGK, dll)
       const itemsToSync = parseTelkomWorkbook(window.XLSX, wb, user.nama_lengkap, 'Tagihan Berjalan');
 
       if (itemsToSync.length === 0) {
@@ -1154,3 +1268,4 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
+
