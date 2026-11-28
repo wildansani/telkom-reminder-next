@@ -38,7 +38,8 @@ export async function GET(request) {
   const userId = searchParams.get('userId');
   const mode = searchParams.get('mode') || 'default';
   const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || (mode === 'default' ? '10000' : '50'), 10);
+  const limitParam = searchParams.get('limit');
+  const limit = limitParam ? parseInt(limitParam, 10) : (mode === 'default' ? 10000 : 50);
   const search = searchParams.get('search') || '';
   const filterDatel = searchParams.get('datel') || 'ALL';
   const filterCaring = searchParams.get('caring') || 'ALL';
@@ -52,8 +53,8 @@ export async function GET(request) {
   try {
     await ensureIndibizTable();
 
+    // Mode Agregasi (Untuk Executive Analytics)
     if (mode === 'summary') {
-      // Ambil Data Agregat (Sangat Cepat) untuk Grafik & KPI
       const summaryRes = await sql`
         SELECT 
           COUNT(*) as total,
@@ -61,7 +62,7 @@ export async function GET(request) {
           COUNT(*) FILTER (WHERE status_chat != 'LUNAS' AND status_visit != 'LUNAS_TEMPAT') as unpaid,
           COALESCE(SUM(nominal) FILTER (WHERE status_chat != 'LUNAS' AND status_visit != 'LUNAS_TEMPAT'), 0) as total_outstanding,
           COALESCE(SUM(nominal) FILTER (WHERE status_chat = 'LUNAS' OR status_visit = 'LUNAS_TEMPAT'), 0) as total_lunas_nominal,
-          COUNT(*) FILTER (WHERE status_caring != 'BELUM_CARING' OR status_chat = 'SUDAH_CHAT' OR status_chat = 'LUNAS') as sudah_caring,
+          COUNT(*) FILTER (WHERE status_caring != 'BELUM_CARING' OR status_chat IN ('SUDAH_CHAT', 'LUNAS')) as sudah_caring,
           COUNT(*) FILTER (WHERE status_visit != 'BELUM_VISIT') as sudah_visit
         FROM indibiz_billing WHERE user_id = ${Number(userId)}
       `;
@@ -80,30 +81,56 @@ export async function GET(request) {
       return NextResponse.json({ summary: summaryRes[0], datelStats: datelRes }, { status: 200 });
     }
 
-    // Mode Paginated Table (Untuk Tindak Lanjut & Indibiz Master)
+    // Mode Table (Untuk dropdown Indibiz, Surat Tagihan, dan Tabel Pagination)
     const offset = (page - 1) * limit;
     let whereClause = `user_id = ${Number(userId)}`;
     
-    if (search) {
-      whereClause += ` AND (nama_pelanggan ILIKE '%${search}%' OR nomor_layanan ILIKE '%${search}%' OR pic_petugas ILIKE '%${search}%')`;
-    }
-    if (filterDatel !== 'ALL') whereClause += ` AND datel_sto = '${filterDatel}'`;
-    if (filterCaring !== 'ALL') whereClause += ` AND status_caring = '${filterCaring}'`;
-    if (filterVisit !== 'ALL') whereClause += ` AND status_visit = '${filterVisit}'`;
-    if (filterPic !== 'ALL') whereClause += ` AND pic_petugas = '${filterPic}'`;
+    // Parameterized query untuk keamanan
+    const queryParams = [];
+    let paramIndex = 1;
 
-    const data = await sql.query(`
+    if (search) {
+      whereClause += ` AND (nama_pelanggan ILIKE $${paramIndex} OR nomor_layanan ILIKE $${paramIndex} OR pic_petugas ILIKE $${paramIndex})`;
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+    if (filterDatel !== 'ALL') {
+      whereClause += ` AND datel_sto = $${paramIndex}`;
+      queryParams.push(filterDatel);
+      paramIndex++;
+    }
+    if (filterCaring !== 'ALL') {
+      whereClause += ` AND status_caring = $${paramIndex}`;
+      queryParams.push(filterCaring);
+      paramIndex++;
+    }
+    if (filterVisit !== 'ALL') {
+      whereClause += ` AND status_visit = $${paramIndex}`;
+      queryParams.push(filterVisit);
+      paramIndex++;
+    }
+    if (filterPic !== 'ALL') {
+      whereClause += ` AND pic_petugas = $${paramIndex}`;
+      queryParams.push(filterPic);
+      paramIndex++;
+    }
+
+    // Ambil data (Limit + Offset)
+    const dataQuery = `
       SELECT * FROM indibiz_billing
       WHERE ${whereClause}
       ORDER BY nama_pelanggan ASC
-      LIMIT $1 OFFSET $2
-    `, [limit, offset]);
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    const dataParams = [...queryParams, limit, offset];
+    const data = await sql.query(dataQuery, dataParams);
 
-    const countRes = await sql.query(`
-      SELECT COUNT(*) as total FROM indibiz_billing WHERE ${whereClause}
-    `);
+    // Hitung total untuk pagination UI
+    const countQuery = `SELECT COUNT(*) as total FROM indibiz_billing WHERE ${whereClause}`;
+    const countRes = await sql.query(countQuery, queryParams);
+    const total = parseInt(countRes[0]?.total || '0', 10);
 
-    return NextResponse.json({ data, total: parseInt(countRes[0].total, 10) }, { status: 200 });
+    return NextResponse.json({ data, total }, { status: 200 });
   } catch (error) {
     console.error('GET /api/indibiz error:', error);
     return NextResponse.json({ message: 'Error fetching data', error: error.message }, { status: 500 });
@@ -120,10 +147,8 @@ export async function POST(request) {
       return NextResponse.json({ message: 'User ID tidak valid, silakan login ulang.' }, { status: 400 });
     }
 
-    // Mode Bulk Import (Batch kecil 10 per putaran agar koneksi Neon stabil)
     if (Array.isArray(body.items)) {
       const upsert = !!body.upsert;
-
       const rows = body.items
         .map((item) => {
           const snd = String(item.nomorLayanan || '').trim();
@@ -150,7 +175,6 @@ export async function POST(request) {
         return NextResponse.json({ message: 'Tidak ada baris valid', count: 0 }, { status: 200 });
       }
 
-      // Bangun query VALUES + parameterized secara dinamis (aman dari SQL injection)
       const valuesSql = [];
       const params = [userId];
       let p = 2;
@@ -189,7 +213,6 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Bulk sync sukses', count: rows.length }, { status: 201 });
     }
 
-    // Mode Single Insert
     const {
       nomorLayanan, namaPelanggan, noWa, periode, nominal,
       datelSto, statusCaring, statusVisit, umurTunggakan, picPetugas, alamat, produk
@@ -286,7 +309,3 @@ export async function DELETE(request) {
     return NextResponse.json({ message: error.message || 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
-
-
-
-
