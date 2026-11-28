@@ -2,7 +2,9 @@
 import { sql } from '../../../lib/db';
 import { NextResponse } from 'next/server';
 
+let _indibizReady = false;
 async function ensureIndibizTable() {
+  if (_indibizReady) return;
   await sql`
     CREATE TABLE IF NOT EXISTS indibiz_billing (
       id SERIAL PRIMARY KEY,
@@ -28,6 +30,7 @@ async function ensureIndibizTable() {
   await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS pic_petugas TEXT DEFAULT 'Tim Billing'`;
   await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS alamat TEXT DEFAULT ''`;
   await sql`ALTER TABLE indibiz_billing ADD COLUMN IF NOT EXISTS produk TEXT DEFAULT 'Indibiz / Wireline'`;
+  _indibizReady = true;
 }
 
 export async function GET(request) {
@@ -64,73 +67,71 @@ export async function POST(request) {
 
     // Mode Bulk Import (Batch kecil 10 per putaran agar koneksi Neon stabil)
     if (Array.isArray(body.items)) {
-      let processedCount = 0;
-      const chunkSize = 10;
+      const upsert = !!body.upsert;
 
-      for (let i = 0; i < body.items.length; i += chunkSize) {
-        const chunk = body.items.slice(i, i + chunkSize);
-        await Promise.all(
-          chunk.map(async (item) => {
-            const snd = String(item.nomorLayanan || '').trim();
-            const nama = String(item.namaPelanggan || '').toUpperCase().trim();
-            if (!snd || !nama) return;
+      const rows = body.items
+        .map((item) => {
+          const snd = String(item.nomorLayanan || '').trim();
+          const nama = String(item.namaPelanggan || '').toUpperCase().trim();
+          if (!snd || !nama) return null;
+          return {
+            snd, nama,
+            wa: String(item.noWa || '').trim(),
+            periode: String(item.periode || 'Tagihan Berjalan').trim(),
+            nominal: Math.max(0, Math.round(Number(item.nominal) || 0)),
+            datelSto: String(item.datelSto || 'Priangan Timur').trim(),
+            statusChat: String(item.statusChat || 'BELUM_CHAT').trim() || 'BELUM_CHAT',
+            statusCaring: String(item.statusCaring || 'BELUM_CARING').trim() || 'BELUM_CARING',
+            statusVisit: String(item.statusVisit || 'BELUM_VISIT').trim() || 'BELUM_VISIT',
+            umurTunggakan: String(item.umurTunggakan || '1 Bulan').trim(),
+            picPetugas: String(item.picPetugas || 'Tim Billing').trim(),
+            alamat: String(item.alamat || '').trim(),
+            produk: String(item.produk || 'Indibiz / Wireline').trim(),
+          };
+        })
+        .filter(Boolean);
 
-            const wa = String(item.noWa || '').trim();
-            const periode = String(item.periode || 'Tagihan Berjalan').trim();
-            const nominal = Math.max(0, Math.round(Number(item.nominal) || 0));
-            const datelSto = String(item.datelSto || 'Priangan Timur').trim();
-            const statusChat = String(item.statusChat || '').trim();
-            const statusCaring = String(item.statusCaring || 'BELUM_CARING').trim();
-            const statusVisit = String(item.statusVisit || '').trim();
-            const umurTunggakan = String(item.umurTunggakan || '1 Bulan').trim();
-            const picPetugas = String(item.picPetugas || 'Tim Billing').trim();
-            const alamat = String(item.alamat || '').trim();
-            const produk = String(item.produk || 'Indibiz / Wireline').trim();
-
-            if (body.upsert) {
-              const existing = await sql`
-                SELECT id FROM indibiz_billing
-                WHERE user_id = ${userId} AND nomor_layanan = ${snd}
-                LIMIT 1
-              `;
-              if (existing.length > 0) {
-                await sql`
-                  UPDATE indibiz_billing
-                  SET nama_pelanggan = ${nama},
-                      no_wa = COALESCE(NULLIF(${wa}, ''), no_wa),
-                      periode = ${periode},
-                      nominal = ${nominal},
-                      status_chat = COALESCE(NULLIF(${statusChat}, ''), status_chat),
-                      datel_sto = ${datelSto},
-                      status_caring = ${statusCaring},
-                      status_visit = COALESCE(NULLIF(${statusVisit}, ''), status_visit),
-                      umur_tunggakan = ${umurTunggakan},
-                      pic_petugas = ${picPetugas},
-                      alamat = COALESCE(NULLIF(${alamat}, ''), alamat),
-                      produk = ${produk}
-                  WHERE id = ${existing[0].id}
-                `;
-                return;
-              }
-            }
-
-            await sql`
-              INSERT INTO indibiz_billing (
-                user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal,
-                status_chat, datel_sto, status_caring, status_visit, umur_tunggakan, pic_petugas, alamat, produk
-              )
-              VALUES (
-                ${userId}, ${snd}, ${nama}, ${wa}, ${periode}, ${nominal},
-                ${statusChat || 'BELUM_CHAT'}, ${datelSto}, ${statusCaring}, ${statusVisit || 'BELUM_VISIT'},
-                ${umurTunggakan}, ${picPetugas}, ${alamat}, ${produk}
-              )
-            `;
-          })
-        );
-        processedCount += chunk.length;
+      if (rows.length === 0) {
+        return NextResponse.json({ message: 'Tidak ada baris valid', count: 0 }, { status: 200 });
       }
 
-      return NextResponse.json({ message: 'Bulk sync sukses', count: processedCount }, { status: 201 });
+      // Bangun query VALUES + parameterized secara dinamis (aman dari SQL injection)
+      const valuesSql = [];
+      const params = [userId];
+      let p = 2;
+      for (const r of rows) {
+        valuesSql.push(`($1, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++}, $${p++})`);
+        params.push(r.snd, r.nama, r.wa, r.periode, r.nominal, r.statusChat, r.datelSto, r.statusCaring, r.statusVisit, r.umurTunggakan, r.picPetugas, r.alamat, r.produk);
+      }
+
+      const conflictSql = upsert
+        ? `ON CONFLICT (user_id, nomor_layanan) DO UPDATE SET
+             nama_pelanggan = EXCLUDED.nama_pelanggan,
+             no_wa = COALESCE(NULLIF(EXCLUDED.no_wa, ''), indibiz_billing.no_wa),
+             periode = EXCLUDED.periode,
+             nominal = EXCLUDED.nominal,
+             status_chat = COALESCE(NULLIF(EXCLUDED.status_chat, ''), indibiz_billing.status_chat),
+             datel_sto = EXCLUDED.datel_sto,
+             status_caring = EXCLUDED.status_caring,
+             status_visit = COALESCE(NULLIF(EXCLUDED.status_visit, ''), indibiz_billing.status_visit),
+             umur_tunggakan = EXCLUDED.umur_tunggakan,
+             pic_petugas = EXCLUDED.pic_petugas,
+             alamat = COALESCE(NULLIF(EXCLUDED.alamat, ''), indibiz_billing.alamat),
+             produk = EXCLUDED.produk`
+        : `ON CONFLICT (user_id, nomor_layanan) DO NOTHING`;
+
+      const finalSql = `
+        INSERT INTO indibiz_billing (
+          user_id, nomor_layanan, nama_pelanggan, no_wa, periode, nominal,
+          status_chat, datel_sto, status_caring, status_visit, umur_tunggakan, pic_petugas, alamat, produk
+        )
+        VALUES ${valuesSql.join(', ')}
+        ${conflictSql}
+      `;
+
+      await sql.query(finalSql, params);
+
+      return NextResponse.json({ message: 'Bulk sync sukses', count: rows.length }, { status: 201 });
     }
 
     // Mode Single Insert
@@ -230,3 +231,4 @@ export async function DELETE(request) {
     return NextResponse.json({ message: error.message || 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
+
