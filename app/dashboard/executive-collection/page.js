@@ -11,7 +11,7 @@ export default function ExecutiveCollectionPage() {
   const [penawaranRecords, setPenawaranRecords] = useState([]);
 
   // Navigasi Sub-Tab Internal
-  const [activeSection, setActiveSection] = useState('RINGKASAN'); // 'RINGKASAN', 'TINDAK_LANJUT', 'KINERJA_PIC'
+  const [activeSection, setActiveSection] = useState('RINGKASAN'); // 'RINGKASAN', 'TINDAK_LANJUT', 'KINERJA_PIC', 'INTEGRASI_DATA'
   const [privacyMask, setPrivacyMask] = useState(false);
 
   // Filter Tindak Lanjut
@@ -43,7 +43,7 @@ export default function ExecutiveCollectionPage() {
       const [resIndibiz, resPiutang, resPenawaran] = await Promise.all([
         fetch(`/api/indibiz?userId=${userId}`),
         fetch(`/api/piutang?userId=${userId}`),
-        fetch(`/api/penawaran?userId=${userId}`)
+        fetch(`/api/penawaran?userId=${userId}`),
       ]);
       if (resIndibiz.ok) setRecords((await resIndibiz.json()).data || []);
       if (resPiutang.ok) setPiutangRecords((await resPiutang.json()).data || []);
@@ -71,170 +71,14 @@ export default function ExecutiveCollectionPage() {
         statusVisit: updatedItem.status_visit || 'BELUM_VISIT',
         umurTunggakan: updatedItem.umur_tunggakan || '1 Bulan',
         picPetugas: updatedItem.pic_petugas || user.nama_lengkap,
+        alamat: updatedItem.alamat || '',
+        produk: updatedItem.produk || 'Indibiz / Wireline',
       }),
     });
     if (res.ok) {
       loadAllAnalyticsData(user.id);
     }
   };
-
-  // Sensor Privasi (Menyamarkan ID Layanan & Nomor HP saat presentasi)
-  const maskText = (val) => {
-    const str = String(val || '');
-    if (!privacyMask || str.length < 6) return str;
-    return str.slice(0, 4) + '****' + str.slice(-4);
-  };
-
-  const formatRupiah = (num) => {
-    const val = Number(num) || 0;
-    return 'Rp ' + val.toLocaleString('id-ID');
-  };
-
-  const formatJuta = (num) => {
-    const val = Number(num) || 0;
-    if (val >= 1000000) return `Rp ${(val / 1000000).toFixed(1)} Jt`;
-    if (val >= 1000) return `Rp ${(val / 1000).toFixed(0)} Rb`;
-    return `Rp ${val}`;
-  };
-
-  if (!user) return null;
-
-  // --- KALKULASI METRIK EKSEKUTIF REAL-TIME ---
-  const totalPelanggan = records.length;
-  const lunasList = records.filter((r) => r.status_chat === 'LUNAS' || r.status_visit === 'LUNAS_TEMPAT');
-  const unpaidList = records.filter((r) => r.status_chat !== 'LUNAS' && r.status_visit !== 'LUNAS_TEMPAT');
-
-  const totalOutstanding = unpaidList.reduce((acc, r) => acc + (Number(r.nominal) || 0), 0);
-  const totalLunasNominal = lunasList.reduce((acc, r) => acc + (Number(r.nominal) || 0), 0);
-
-  const sudahCaringList = records.filter(
-    (r) =>
-      (r.status_caring && r.status_caring !== 'BELUM_CARING') ||
-      r.status_chat === 'SUDAH_CHAT' ||
-      r.status_chat === 'LUNAS'
-  );
-  const belumCaringCount = Math.max(0, totalPelanggan - sudahCaringList.length);
-
-  const sudahVisitList = records.filter((r) => r.status_visit && r.status_visit !== 'BELUM_VISIT');
-  const belumVisitCount = Math.max(0, totalPelanggan - sudahVisitList.length);
-
-  const janjiBayarList = records.filter((r) => r.status_caring === 'JANJI_BAYAR');
-  const tunggakan2BlnList = records.filter((r) => r.umur_tunggakan === '> 2 Bulan');
-
-  const caringPct = totalPelanggan > 0 ? ((sudahCaringList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
-  const visitPct = totalPelanggan > 0 ? ((sudahVisitList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
-  const lunasPct = totalPelanggan > 0 ? ((lunasList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
-  const unpaidPct = totalPelanggan > 0 ? ((unpaidList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
-
-  // --- DATA DONUT CHART DISTRIBUSI STATUS ---
-  const donutSegments = [
-    { label: 'Sudah Bayar (Lunas)', count: lunasList.length, color: '#10b981' },
-    { label: 'Sudah Caring', count: sudahCaringList.length, color: '#f59e0b' },
-    { label: 'Belum Caring (Antrean)', count: belumCaringCount, color: '#E4002B' },
-    { label: 'Janji Bayar', count: janjiBayarList.length, color: '#8b5cf6' },
-    { label: 'Sudah Visit', count: sudahVisitList.length, color: '#3b82f6' },
-    { label: 'Tunggakan > 2 Bln', count: tunggakan2BlnList.length, color: '#9f1239' },
-  ];
-  const totalSegmentSum = donutSegments.reduce((s, d) => s + d.count, 0) || 1;
-  let cumulativeAngle = 0;
-
-  // --- DATA GROUPED BAR CHART PER DATEL / STO ---
-  const datelMap = {};
-  records.forEach((r) => {
-    const datel = r.datel_sto || 'Priangan Timur';
-    if (!datelMap[datel]) datelMap[datel] = { name: datel, caring: 0, antrean: 0, outstanding: 0 };
-    const isCared =
-      (r.status_caring && r.status_caring !== 'BELUM_CARING') ||
-      r.status_chat === 'SUDAH_CHAT' ||
-      r.status_chat === 'LUNAS';
-    if (isCared) datelMap[datel].caring += 1;
-    else datelMap[datel].antrean += 1;
-
-    if (r.status_chat !== 'LUNAS' && r.status_visit !== 'LUNAS_TEMPAT') {
-      datelMap[datel].outstanding += Number(r.nominal) || 0;
-    }
-  });
-  const datelStats = Object.values(datelMap);
-  const maxDatelBar = Math.max(1, ...datelStats.map((d) => Math.max(d.caring, d.antrean)));
-  const topOutstandingDatel = [...datelStats].sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
-  const maxOutstandingVal = Math.max(1, ...topOutstandingDatel.map((d) => d.outstanding));
-
-  // --- RANKING KINERJA PIC / AM (GABUNGAN DATA COLLECTION + PENAWARAN + INDIBIZ) ---
-  const picStatsMap = {};
-  const ensurePicEntry = (name) => {
-    const key = (name || user.nama_lengkap).trim();
-    if (!picStatsMap[key]) {
-      picStatsMap[key] = {
-        pic: key,
-        datel: 'Priangan Timur',
-        totalCaring: 0,
-        totalVisit: 0,
-        lunasNominal: 0,
-        totalPelanggan: 0,
-        lunasCount: 0,
-        activeOffers: 0,
-        wonOffers: 0,
-      };
-    }
-    return picStatsMap[key];
-  };
-
-  records.forEach((r) => {
-    const entry = ensurePicEntry(r.pic_petugas || user.nama_lengkap);
-    entry.datel = r.datel_sto || entry.datel;
-    entry.totalPelanggan += 1;
-    const isCared =
-      (r.status_caring && r.status_caring !== 'BELUM_CARING') ||
-      r.status_chat === 'SUDAH_CHAT' ||
-      r.status_chat === 'LUNAS';
-    if (isCared) entry.totalCaring += 1;
-    if (r.status_visit && r.status_visit !== 'BELUM_VISIT') entry.totalVisit += 1;
-    if (r.status_chat === 'LUNAS' || r.status_visit === 'LUNAS_TEMPAT') {
-      entry.lunasCount += 1;
-      entry.lunasNominal += Number(r.nominal) || 0;
-    }
-  });
-
-  piutangRecords.forEach((p) => {
-    const entry = ensurePicEntry(p.pic_am || user.nama_lengkap);
-    entry.totalPelanggan += 1;
-    entry.totalCaring += 1;
-    if (p.status_pembayaran === 'PAID') {
-      entry.lunasCount += 1;
-    }
-  });
-
-  penawaranRecords.forEach((o) => {
-    const entry = ensurePicEntry(o.pic_am || user.nama_lengkap);
-    if (o.status_prospek === 'WON') entry.wonOffers += 1;
-    else if (!o.status_prospek || o.status_prospek === 'IN_PROGRESS') entry.activeOffers += 1;
-  });
-
-  const picLeaderboard = Object.values(picStatsMap)
-    .map((p) => ({
-      ...p,
-      collectionRate: p.totalPelanggan > 0 ? ((p.lunasCount / p.totalPelanggan) * 100).toFixed(1) : '0.0',
-    }))
-    .sort((a, b) => b.totalCaring - a.totalCaring || b.lunasNominal - a.lunasNominal);
-
-  const topCaringOfficer = [...picLeaderboard].sort((a, b) => b.totalCaring - a.totalCaring)[0];
-  const topVisitOfficer = [...picLeaderboard].sort((a, b) => b.totalVisit - a.totalVisit)[0];
-
-  // --- FILTER TABEL TINDAK LANJUT ---
-  const uniqueDatels = [...new Set(records.map((r) => r.datel_sto || 'Priangan Timur'))];
-  const uniquePics = [...new Set(records.map((r) => r.pic_petugas || user.nama_lengkap))];
-
-  const filteredFollowUp = records.filter((r) => {
-    const matchesSearch =
-      r.nama_pelanggan.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.nomor_layanan.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (r.pic_petugas || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDatel = filterDatel === 'ALL' || (r.datel_sto || 'Priangan Timur') === filterDatel;
-    const matchesCaring = filterCaring === 'ALL' || (r.status_caring || 'BELUM_CARING') === filterCaring;
-    const matchesVisit = filterVisit === 'ALL' || (r.status_visit || 'BELUM_VISIT') === filterVisit;
-    const matchesPic = filterPic === 'ALL' || (r.pic_petugas || user.nama_lengkap) === filterPic;
-    return matchesSearch && matchesDatel && matchesCaring && matchesVisit && matchesPic;
-  });
 
   const handleMasterBulkImport = (e) => {
     const file = e.target.files[0];
@@ -252,7 +96,6 @@ export default function ExecutiveCollectionPage() {
       let syncSummary = [];
 
       if (isMultiSheetBackup) {
-        // Sheet 1: Indibiz & Collection (Caring/Visit/Chat)
         if (wb.Sheets['1_Indibiz_&_Collection']) {
           const rows1 = window.XLSX.utils.sheet_to_json(wb.Sheets['1_Indibiz_&_Collection'], { defval: '' });
           const items1 = rows1
@@ -279,7 +122,6 @@ export default function ExecutiveCollectionPage() {
           }
         }
 
-        // Sheet 2: Piutang & Bukpot
         if (wb.Sheets['2_Piutang_&_Bukpot']) {
           const rows2 = window.XLSX.utils.sheet_to_json(wb.Sheets['2_Piutang_&_Bukpot'], { defval: '' });
           const existingPiutang = new Map(
@@ -315,7 +157,6 @@ export default function ExecutiveCollectionPage() {
           if (count2 > 0) syncSummary.push(`${count2} Piutang`);
         }
 
-        // Sheet 3: Prospek Penawaran
         if (wb.Sheets['3_Prospek_Penawaran']) {
           const rows3 = window.XLSX.utils.sheet_to_json(wb.Sheets['3_Prospek_Penawaran'], { defval: '' });
           const existingOffers = new Map(
@@ -382,6 +223,7 @@ export default function ExecutiveCollectionPage() {
     };
     reader.readAsBinaryString(file);
   };
+
   const exportFullPortalBackup = () => {
     if (!window.XLSX) return;
     const wb = window.XLSX.utils.book_new();
@@ -391,6 +233,7 @@ export default function ExecutiveCollectionPage() {
       'Nomor Layanan': r.nomor_layanan,
       'Nama Pelanggan': r.nama_pelanggan,
       'No WhatsApp': r.no_wa || '-',
+      'Alamat': r.alamat || '-',
       'Datel / STO': r.datel_sto || 'Priangan Timur',
       'Nominal (Rp)': Number(r.nominal) || 0,
       'Status Chat': r.status_chat || 'BELUM_CHAT',
@@ -424,6 +267,156 @@ export default function ExecutiveCollectionPage() {
     window.XLSX.writeFile(wb, `Full_Sync_Telkom_EBS_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const maskText = (val) => {
+    const str = String(val || '');
+    if (!privacyMask || str.length < 6) return str;
+    return str.slice(0, 4) + '****' + str.slice(-4);
+  };
+
+  const formatRupiah = (num) => {
+    const val = Number(num) || 0;
+    return 'Rp ' + val.toLocaleString('id-ID');
+  };
+
+  const formatJuta = (num) => {
+    const val = Number(num) || 0;
+    if (val >= 1000000) return `Rp ${(val / 1000000).toFixed(1)} Jt`;
+    if (val >= 1000) return `Rp ${(val / 1000).toFixed(0)} Rb`;
+    return `Rp ${val}`;
+  };
+
+  if (!user) return null;
+
+  const totalPelanggan = records.length;
+  const lunasList = records.filter((r) => r.status_chat === 'LUNAS' || r.status_visit === 'LUNAS_TEMPAT');
+  const unpaidList = records.filter((r) => r.status_chat !== 'LUNAS' && r.status_visit !== 'LUNAS_TEMPAT');
+
+  const totalOutstanding = unpaidList.reduce((acc, r) => acc + (Number(r.nominal) || 0), 0);
+  const totalLunasNominal = lunasList.reduce((acc, r) => acc + (Number(r.nominal) || 0), 0);
+
+  const sudahCaringList = records.filter(
+    (r) =>
+      (r.status_caring && r.status_caring !== 'BELUM_CARING') ||
+      r.status_chat === 'SUDAH_CHAT' ||
+      r.status_chat === 'LUNAS'
+  );
+  const belumCaringCount = Math.max(0, totalPelanggan - sudahCaringList.length);
+
+  const sudahVisitList = records.filter((r) => r.status_visit && r.status_visit !== 'BELUM_VISIT');
+  const belumVisitCount = Math.max(0, totalPelanggan - sudahVisitList.length);
+
+  const janjiBayarList = records.filter((r) => r.status_caring === 'JANJI_BAYAR');
+  const tunggakan2BlnList = records.filter((r) => r.umur_tunggakan === '> 2 Bulan');
+
+  const caringPct = totalPelanggan > 0 ? ((sudahCaringList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
+  const visitPct = totalPelanggan > 0 ? ((sudahVisitList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
+  const lunasPct = totalPelanggan > 0 ? ((lunasList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
+  const unpaidPct = totalPelanggan > 0 ? ((unpaidList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
+
+  const donutSegments = [
+    { label: 'Sudah Bayar (Lunas)', count: lunasList.length, color: '#10b981' },
+    { label: 'Sudah Caring', count: sudahCaringList.length, color: '#f59e0b' },
+    { label: 'Belum Caring (Antrean)', count: belumCaringCount, color: '#E4002B' },
+    { label: 'Janji Bayar', count: janjiBayarList.length, color: '#8b5cf6' },
+    { label: 'Sudah Visit', count: sudahVisitList.length, color: '#3b82f6' },
+    { label: 'Tunggakan > 2 Bln', count: tunggakan2BlnList.length, color: '#9f1239' },
+  ];
+  const totalSegmentSum = donutSegments.reduce((s, d) => s + d.count, 0) || 1;
+  let cumulativeAngle = 0;
+
+  const datelMap = {};
+  records.forEach((r) => {
+    const datel = r.datel_sto || 'Priangan Timur';
+    if (!datelMap[datel]) datelMap[datel] = { name: datel, caring: 0, antrean: 0, outstanding: 0 };
+    const isCared =
+      (r.status_caring && r.status_caring !== 'BELUM_CARING') ||
+      r.status_chat === 'SUDAH_CHAT' ||
+      r.status_chat === 'LUNAS';
+    if (isCared) datelMap[datel].caring += 1;
+    else datelMap[datel].antrean += 1;
+
+    if (r.status_chat !== 'LUNAS' && r.status_visit !== 'LUNAS_TEMPAT') {
+      datelMap[datel].outstanding += Number(r.nominal) || 0;
+    }
+  });
+  const datelStats = Object.values(datelMap);
+  const maxDatelBar = Math.max(1, ...datelStats.map((d) => Math.max(d.caring, d.antrean)));
+  const topOutstandingDatel = [...datelStats].sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
+  const maxOutstandingVal = Math.max(1, ...topOutstandingDatel.map((d) => d.outstanding));
+
+  const picStatsMap = {};
+  const ensurePicEntry = (name) => {
+    const key = (name || user.nama_lengkap).trim();
+    if (!picStatsMap[key]) {
+      picStatsMap[key] = {
+        pic: key,
+        datel: 'Priangan Timur',
+        totalCaring: 0,
+        totalVisit: 0,
+        lunasNominal: 0,
+        totalPelanggan: 0,
+        lunasCount: 0,
+        activeOffers: 0,
+        wonOffers: 0,
+      };
+    }
+    return picStatsMap[key];
+  };
+
+  records.forEach((r) => {
+    const entry = ensurePicEntry(r.pic_petugas || user.nama_lengkap);
+    entry.datel = r.datel_sto || entry.datel;
+    entry.totalPelanggan += 1;
+    const isCared =
+      (r.status_caring && r.status_caring !== 'BELUM_CARING') ||
+      r.status_chat === 'SUDAH_CHAT' ||
+      r.status_chat === 'LUNAS';
+    if (isCared) entry.totalCaring += 1;
+    if (r.status_visit && r.status_visit !== 'BELUM_VISIT') entry.totalVisit += 1;
+    if (r.status_chat === 'LUNAS' || r.status_visit === 'LUNAS_TEMPAT') {
+      entry.lunasCount += 1;
+      entry.lunasNominal += Number(r.nominal) || 0;
+    }
+  });
+
+  piutangRecords.forEach((p) => {
+    const entry = ensurePicEntry(p.pic_am || user.nama_lengkap);
+    entry.totalPelanggan += 1;
+    entry.totalCaring += 1;
+    if (p.status_pembayaran === 'PAID') entry.lunasCount += 1;
+  });
+
+  penawaranRecords.forEach((o) => {
+    const entry = ensurePicEntry(o.pic_am || user.nama_lengkap);
+    if (o.status_prospek === 'WON') entry.wonOffers += 1;
+    else if (!o.status_prospek || o.status_prospek === 'IN_PROGRESS') entry.activeOffers += 1;
+  });
+
+  const picLeaderboard = Object.values(picStatsMap)
+    .map((p) => ({
+      ...p,
+      collectionRate: p.totalPelanggan > 0 ? ((p.lunasCount / p.totalPelanggan) * 100).toFixed(1) : '0.0',
+    }))
+    .sort((a, b) => b.totalCaring - a.totalCaring || b.lunasNominal - a.lunasNominal);
+
+  const topCaringOfficer = [...picLeaderboard].sort((a, b) => b.totalCaring - a.totalCaring)[0];
+  const topVisitOfficer = [...picLeaderboard].sort((a, b) => b.totalVisit - a.totalVisit)[0];
+
+  const uniqueDatels = [...new Set(records.map((r) => r.datel_sto || 'Priangan Timur'))];
+  const uniquePics = [...new Set(records.map((r) => r.pic_petugas || user.nama_lengkap))];
+
+  const filteredFollowUp = records.filter((r) => {
+    const matchesSearch =
+      r.nama_pelanggan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.nomor_layanan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.pic_petugas || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDatel = filterDatel === 'ALL' || (r.datel_sto || 'Priangan Timur') === filterDatel;
+    const matchesCaring = filterCaring === 'ALL' || (r.status_caring || 'BELUM_CARING') === filterCaring;
+    const matchesVisit = filterVisit === 'ALL' || (r.status_visit || 'BELUM_VISIT') === filterVisit;
+    const matchesPic = filterPic === 'ALL' || (r.pic_petugas || user.nama_lengkap) === filterPic;
+    return matchesSearch && matchesDatel && matchesCaring && matchesVisit && matchesPic;
+  });
+
   const exportAnalyticsExcel = () => {
     if (!window.XLSX) return;
     const rows = filteredFollowUp.map((r, idx) => ({
@@ -446,7 +439,6 @@ export default function ExecutiveCollectionPage() {
 
   return (
     <div className="bg-gradient-to-br from-rose-50 via-red-50/60 to-slate-200 min-h-screen pb-12">
-      {/* Header Korporat Merah Gradasi */}
       <header className="bg-gradient-to-r from-[#E4002B] via-[#B80022] to-slate-900 text-white shadow-lg sticky top-0 z-30">
         <div className="max-w-7xl mx-auto p-4 flex flex-wrap justify-between items-center gap-3">
           <div>
@@ -470,7 +462,6 @@ export default function ExecutiveCollectionPage() {
             <button
               onClick={() => loadAllAnalyticsData(user.id)}
               className="text-xs bg-white/15 hover:bg-white/25 text-white font-bold px-3 py-2 rounded-xl border border-white/25 transition"
-              title="Refresh Data"
             >
               🔄 Sync
             </button>
@@ -485,7 +476,7 @@ export default function ExecutiveCollectionPage() {
       </header>
 
       <div className="max-w-7xl mx-auto p-4 mt-2 space-y-6">
-        {/* Sub-Navigasi Tab Eksekutif */}
+        {/* Sub-Navigasi Tab */}
         <div className="bg-white rounded-2xl shadow-sm p-2 flex flex-wrap gap-2 border border-red-100">
           <button
             onClick={() => setActiveSection('RINGKASAN')}
@@ -497,6 +488,7 @@ export default function ExecutiveCollectionPage() {
           >
             <span>📊 Ringkasan Eksekutif & Grafik</span>
           </button>
+
           <button
             onClick={() => setActiveSection('TINDAK_LANJUT')}
             className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center gap-2 ${
@@ -510,6 +502,7 @@ export default function ExecutiveCollectionPage() {
               {unpaidList.length}
             </span>
           </button>
+
           <button
             onClick={() => setActiveSection('KINERJA_PIC')}
             className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center gap-2 ${
@@ -539,22 +532,17 @@ export default function ExecutiveCollectionPage() {
           </button>
         </div>
 
-        {/* ===================================================================== */}
-        {/* SECTION 1: RINGKASAN EKSEKUTIF & VISUALISASI GRAFIK LENGKAP           */}
-        {/* ===================================================================== */}
+        {/* TAB 1: RINGKASAN EKSEKUTIF & GRAFIK */}
         {activeSection === 'RINGKASAN' && (
           <div className="space-y-6">
-            {/* 8 Kartu KPI Ringkasan Eksekutif */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-indigo-600 flex justify-between items-center">
                 <div>
                   <p className="text-[11px] font-extrabold text-slate-500 uppercase">Total Pelanggan</p>
                   <p className="text-3xl font-black text-indigo-700 mt-1">{totalPelanggan}</p>
-                  <p className="text-[11px] text-slate-500 mt-1">Pelanggan Indibiz Terdaftar</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Pelanggan Terdaftar</p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
-                  👥
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">👥</div>
               </div>
 
               <div className="bg-gradient-to-br from-rose-50 to-red-100/70 rounded-2xl p-5 shadow-sm border-l-4 border-[#E4002B] flex justify-between items-center">
@@ -563,9 +551,7 @@ export default function ExecutiveCollectionPage() {
                   <p className="text-2xl font-black text-[#E4002B] mt-1">{formatRupiah(totalOutstanding)}</p>
                   <p className="text-[11px] text-slate-600 mt-1">{unpaidList.length} tagihan belum lunas</p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-white text-[#E4002B] flex items-center justify-center text-xl shadow-sm">
-                  💳
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-white text-[#E4002B] flex items-center justify-center text-xl shadow-sm">💳</div>
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-amber-500 flex justify-between items-center">
@@ -574,9 +560,7 @@ export default function ExecutiveCollectionPage() {
                   <p className="text-3xl font-black text-amber-600 mt-1">{sudahCaringList.length}</p>
                   <p className="text-[11px] text-slate-500 mt-1">{caringPct}% dari total pelanggan</p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
-                  📞
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">📞</div>
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-purple-600 flex justify-between items-center">
@@ -587,9 +571,7 @@ export default function ExecutiveCollectionPage() {
                     {totalPelanggan > 0 ? ((belumCaringCount / totalPelanggan) * 100).toFixed(1) : '0.0'}% antrean caring
                   </p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl">
-                  ⏳
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl">⏳</div>
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-sky-500 flex justify-between items-center">
@@ -598,9 +580,7 @@ export default function ExecutiveCollectionPage() {
                   <p className="text-3xl font-black text-sky-600 mt-1">{sudahVisitList.length}</p>
                   <p className="text-[11px] text-slate-500 mt-1">{visitPct}% kunjungan lapangan</p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-xl">
-                  📍
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-xl">📍</div>
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-slate-500 flex justify-between items-center">
@@ -611,9 +591,7 @@ export default function ExecutiveCollectionPage() {
                     {totalPelanggan > 0 ? ((belumVisitCount / totalPelanggan) * 100).toFixed(1) : '0.0'}% belum dikunjungi
                   </p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl">
-                  🚶
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl">🚶</div>
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-emerald-500 flex justify-between items-center">
@@ -622,9 +600,7 @@ export default function ExecutiveCollectionPage() {
                   <p className="text-3xl font-black text-emerald-600 mt-1">{lunasList.length}</p>
                   <p className="text-[11px] text-emerald-700 font-bold mt-1">{lunasPct}% ({formatJuta(totalLunasNominal)})</p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
-                  ✅
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">✅</div>
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-orange-500 flex justify-between items-center">
@@ -633,21 +609,14 @@ export default function ExecutiveCollectionPage() {
                   <p className="text-3xl font-black text-orange-600 mt-1">{unpaidList.length}</p>
                   <p className="text-[11px] text-slate-500 mt-1">{unpaidPct}% dari total tagihan</p>
                 </div>
-                <div className="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-xl">
-                  ⚠️
-                </div>
+                <div className="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-xl">⚠️</div>
               </div>
             </div>
 
-            {/* Baris Grafik 1: Donut Chart Distribusi Status + Grouped Bar Chart per Datel */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Grafik 1: Donut Chart Distribusi Status Tagihan Pelanggan */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
                 <h3 className="text-base font-black text-slate-800">Distribusi Status Tagihan Pelanggan</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Proporsi real-time status pembayaran, caring, visit & umur tunggakan
-                </p>
-
+                <p className="text-xs text-slate-500 mt-0.5">Proporsi real-time status pembayaran, caring, visit & umur tunggakan</p>
                 <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-8">
                   <div className="relative w-48 h-48 shrink-0">
                     <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
@@ -677,7 +646,6 @@ export default function ExecutiveCollectionPage() {
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Total Data</span>
                     </div>
                   </div>
-
                   <div className="space-y-2.5 w-full">
                     {donutSegments.map((seg, idx) => {
                       const pctLabel = ((seg.count / totalSegmentSum) * 100).toFixed(1);
@@ -697,14 +665,11 @@ export default function ExecutiveCollectionPage() {
                 </div>
               </div>
 
-              {/* Grafik 2: Aktivitas Caring & Follow-Up per Datel / Area */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-base font-black text-slate-800">Aktivitas Caring & Follow Up per Datel</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Cakupan penanganan pelanggan menunggak (Sudah Caring vs Antrean)
-                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Cakupan penanganan pelanggan menunggak (Sudah Caring vs Antrean)</p>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] font-bold">
                     <span className="flex items-center gap-1 text-slate-700">
@@ -715,35 +680,26 @@ export default function ExecutiveCollectionPage() {
                     </span>
                   </div>
                 </div>
-
-                <div className="mt-6 h-56 flex items-end justify-around gap-3 border-b border-l border-slate-200 px-4 pt-4">
+                <div className="mt-6 h-56 flex items-end justify-around gap-3 border-b border-l border-slate-200 px-4 pt-4 overflow-x-auto">
                   {datelStats.length === 0 ? (
                     <p className="text-xs text-slate-400 m-auto">Belum ada data pelanggan untuk ditampilkan.</p>
                   ) : (
-                    datelStats.map((d, idx) => {
+                    datelStats.slice(0, 8).map((d, idx) => {
                       const caringHeight = Math.max(8, Math.round((d.caring / maxDatelBar) * 165));
                       const antreanHeight = Math.max(8, Math.round((d.antrean / maxDatelBar) * 165));
                       return (
-                        <div key={idx} className="flex flex-col items-center gap-1.5 flex-1">
+                        <div key={idx} className="flex flex-col items-center gap-1.5 flex-1 min-w-[55px]">
                           <div className="flex items-end gap-1.5 h-44">
                             <div className="flex flex-col items-center">
                               <span className="text-[10px] font-extrabold text-[#E4002B] mb-0.5">{d.caring}</span>
-                              <div
-                                className="w-5 sm:w-7 bg-gradient-to-t from-[#99001D] to-[#E4002B] rounded-t-md transition-all"
-                                style={{ height: `${caringHeight}px` }}
-                              ></div>
+                              <div className="w-5 bg-gradient-to-t from-[#99001D] to-[#E4002B] rounded-t-md" style={{ height: `${caringHeight}px` }}></div>
                             </div>
                             <div className="flex flex-col items-center">
                               <span className="text-[10px] font-extrabold text-slate-500 mb-0.5">{d.antrean}</span>
-                              <div
-                                className="w-5 sm:w-7 bg-slate-400 rounded-t-md transition-all"
-                                style={{ height: `${antreanHeight}px` }}
-                              ></div>
+                              <div className="w-5 bg-slate-400 rounded-t-md" style={{ height: `${antreanHeight}px` }}></div>
                             </div>
                           </div>
-                          <span className="text-[10px] font-bold text-slate-600 text-center truncate max-w-[85px]">
-                            {d.name}
-                          </span>
+                          <span className="text-[10px] font-bold text-slate-600 text-center truncate max-w-[85px]">{d.name}</span>
                         </div>
                       );
                     })
@@ -752,15 +708,10 @@ export default function ExecutiveCollectionPage() {
               </div>
             </div>
 
-            {/* Baris Grafik 2: Top Outstanding per Datel + Tren Collection Rate Mingguan vs Target 98% */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Grafik 3: Top Datel / STO Outstanding */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
                 <h3 className="text-base font-black text-slate-800">Top Area / Datel Outstanding</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Distribusi nominal tagihan belum terbayar terbesar (Rupiah)
-                </p>
-
+                <p className="text-xs text-slate-500 mt-0.5">Distribusi nominal tagihan belum terbayar terbesar (Rupiah)</p>
                 <div className="mt-6 space-y-4">
                   {topOutstandingDatel.length === 0 ? (
                     <p className="text-xs text-slate-400">Belum ada nominal tunggakan tercatat.</p>
@@ -774,10 +725,7 @@ export default function ExecutiveCollectionPage() {
                             <span className="text-[#E4002B]">{formatRupiah(d.outstanding)}</span>
                           </div>
                           <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-[#E4002B] to-rose-400 rounded-full transition-all"
-                              style={{ width: `${widthPct}%` }}
-                            ></div>
+                            <div className="h-full bg-gradient-to-r from-[#E4002B] to-rose-400 rounded-full" style={{ width: `${widthPct}%` }}></div>
                           </div>
                         </div>
                       );
@@ -786,50 +734,29 @@ export default function ExecutiveCollectionPage() {
                 </div>
               </div>
 
-              {/* Grafik 4: Tren Collection Rate Mingguan vs Target KPI (98%) */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-base font-black text-slate-800">Tren Collection Rate vs Target (98%)</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Target pencapaian 98% s.d. cut-off Tgl 5 siklus penagihan bulanan
-                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Target pencapaian 98% s.d. cut-off Tgl 5 siklus penagihan bulanan</p>
                   </div>
                   <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2.5 py-1 rounded-lg">
                     Realisasi: {lunasPct}%
                   </span>
                 </div>
-
                 <div className="mt-5">
                   <svg viewBox="0 0 400 175" className="w-full h-44 overflow-visible">
-                    {/* Grid horizontal */}
                     {[0, 25, 50, 75, 100].map((val, idx) => {
                       const y = 145 - (val / 100) * 125;
                       return (
                         <g key={idx}>
                           <line x1="35" y1={y} x2="385" y2={y} stroke="#e2e8f0" strokeWidth="1" />
-                          <text x="28" y={y + 3} textAnchor="end" fontSize="9" fill="#64748b" fontWeight="bold">
-                            {val}%
-                          </text>
+                          <text x="28" y={y + 3} textAnchor="end" fontSize="9" fill="#64748b" fontWeight="bold">{val}%</text>
                         </g>
                       );
                     })}
-
-                    {/* Garis Target KPI 98% (Hijau Putus-Putus) */}
-                    <line
-                      x1="35"
-                      y1={145 - 0.98 * 125}
-                      x2="385"
-                      y2={145 - 0.98 * 125}
-                      stroke="#10b981"
-                      strokeWidth="2"
-                      strokeDasharray="5,4"
-                    />
-                    <text x="382" y={145 - 0.98 * 125 - 4} textAnchor="end" fontSize="9" fill="#059669" fontWeight="bold">
-                      Target KPI 98%
-                    </text>
-
-                    {/* Kurva Progres Mingguan menuju Realisasi Saat Ini */}
+                    <line x1="35" y1={145 - 0.98 * 125} x2="385" y2={145 - 0.98 * 125} stroke="#10b981" strokeWidth="2" strokeDasharray="5,4" />
+                    <text x="382" y={145 - 0.98 * 125 - 4} textAnchor="end" fontSize="9" fill="#059669" fontWeight="bold">Target KPI 98%</text>
                     {(() => {
                       const currentRate = parseFloat(lunasPct) || 0;
                       const pts = [
@@ -848,9 +775,7 @@ export default function ExecutiveCollectionPage() {
                             return (
                               <g key={i}>
                                 <circle cx={p.x} cy={cy} r="4.5" fill="#E4002B" stroke="#fff" strokeWidth="1.5" />
-                                <text x={p.x} y="162" textAnchor="middle" fontSize="9" fill="#475569" fontWeight="bold">
-                                  {p.label}
-                                </text>
+                                <text x={p.x} y="162" textAnchor="middle" fontSize="9" fill="#475569" fontWeight="bold">{p.label}</text>
                               </g>
                             );
                           })}
@@ -864,86 +789,57 @@ export default function ExecutiveCollectionPage() {
           </div>
         )}
 
-        {/* ===================================================================== */}
-        {/* SECTION 2: TINDAK LANJUT PAYMENT COLLECTION (CARING & VISIT)          */}
-        {/* ===================================================================== */}
+        {/* TAB 2: TINDAK LANJUT (CARING & VISIT) */}
         {activeSection === 'TINDAK_LANJUT' && (
           <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4 border border-slate-100">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-800">📋 Daftar Tindak Lanjut Payment Collection (Caring & Visit)</h3>
-                <p className="text-xs text-slate-500">
-                  Update progres Caring (telepon/WA), kunjungan Visit lapangan, Datel, dan PIC petugas langsung tersimpan ke database.
-                </p>
+                <p className="text-xs text-slate-500">Update progres Caring, kunjungan Visit lapangan, Datel, dan PIC petugas langsung tersimpan ke database.</p>
               </div>
-              <button
-                onClick={exportAnalyticsExcel}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow transition"
-              >
+              <button onClick={exportAnalyticsExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow transition">
                 📊 Export Laporan Excel
               </button>
             </div>
 
-            {/* Filter Pencarian & Dropdown */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-slate-50 p-3.5 rounded-xl border">
               <input
                 type="text"
-                placeholder="🔍 Cari ID / Nama / PIC..."
+                placeholder="🔍 Cari SND / Nama / PIC..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="border rounded-lg p-2 text-xs bg-white outline-none focus:ring-2 focus:ring-[#E4002B]"
               />
-              <select
-                value={filterDatel}
-                onChange={(e) => setFilterDatel(e.target.value)}
-                className="border rounded-lg p-2 text-xs bg-white outline-none"
-              >
-                <option value="ALL">Semua Datel / Area</option>
-                {uniqueDatels.map((d, i) => (
-                  <option key={i} value={d}>{d}</option>
-                ))}
+              <select value={filterDatel} onChange={(e) => setFilterDatel(e.target.value)} className="border rounded-lg p-2 text-xs bg-white outline-none">
+                <option value="ALL">Semua Datel / STO</option>
+                {uniqueDatels.map((d, i) => <option key={i} value={d}>{d}</option>)}
               </select>
-              <select
-                value={filterCaring}
-                onChange={(e) => setFilterCaring(e.target.value)}
-                className="border rounded-lg p-2 text-xs bg-white outline-none"
-              >
+              <select value={filterCaring} onChange={(e) => setFilterCaring(e.target.value)} className="border rounded-lg p-2 text-xs bg-white outline-none">
                 <option value="ALL">Semua Status Caring</option>
                 <option value="BELUM_CARING">⏳ Belum Caring</option>
                 <option value="SUDAH_CARING">📞 Sudah Caring</option>
                 <option value="JANJI_BAYAR">🤝 Janji Bayar</option>
                 <option value="COMPLAIN_TARIF">⚠️ Complain Tarif</option>
               </select>
-              <select
-                value={filterVisit}
-                onChange={(e) => setFilterVisit(e.target.value)}
-                className="border rounded-lg p-2 text-xs bg-white outline-none"
-              >
+              <select value={filterVisit} onChange={(e) => setFilterVisit(e.target.value)} className="border rounded-lg p-2 text-xs bg-white outline-none">
                 <option value="ALL">Semua Status Visit</option>
                 <option value="BELUM_VISIT">🚶 Belum Visit</option>
                 <option value="SUDAH_VISIT">📍 Sudah Visit</option>
                 <option value="LUNAS_TEMPAT">✅ Lunas di Tempat</option>
               </select>
-              <select
-                value={filterPic}
-                onChange={(e) => setFilterPic(e.target.value)}
-                className="border rounded-lg p-2 text-xs bg-white outline-none"
-              >
+              <select value={filterPic} onChange={(e) => setFilterPic(e.target.value)} className="border rounded-lg p-2 text-xs bg-white outline-none">
                 <option value="ALL">Semua Petugas / PIC</option>
-                {uniquePics.map((p, i) => (
-                  <option key={i} value={p}>{p}</option>
-                ))}
+                {uniquePics.map((p, i) => <option key={i} value={p}>{p}</option>)}
               </select>
             </div>
 
-            {/* Tabel Tindak Lanjut */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-900 text-white">
-                    <th className="p-3 rounded-tl-lg">No. Internet</th>
+                    <th className="p-3 rounded-tl-lg">SND / No. Layanan</th>
                     <th className="p-3">Nama Pelanggan</th>
-                    <th className="p-3">Datel / Area</th>
+                    <th className="p-3">Datel / STO</th>
                     <th className="p-3">Outstanding</th>
                     <th className="p-3">Status Caring</th>
                     <th className="p-3">Status Visit</th>
@@ -953,11 +849,7 @@ export default function ExecutiveCollectionPage() {
                 </thead>
                 <tbody>
                   {filteredFollowUp.length === 0 ? (
-                    <tr>
-                      <td colSpan="8" className="text-center p-6 text-slate-500">
-                        Tidak ada data pelanggan yang sesuai dengan filter.
-                      </td>
-                    </tr>
+                    <tr><td colSpan="8" className="text-center p-6 text-slate-500">Tidak ada data pelanggan yang sesuai filter.</td></tr>
                   ) : (
                     filteredFollowUp.map((row) => (
                       <tr key={row.id} className="border-b hover:bg-rose-50/40">
@@ -966,36 +858,13 @@ export default function ExecutiveCollectionPage() {
                           <div className="font-bold text-slate-900">{row.nama_pelanggan}</div>
                           <div className="text-[11px] text-slate-500 font-mono">📞 {maskText(row.no_wa || '-')}</div>
                         </td>
-                        <td className="p-3">
-                          <select
-                            value={row.datel_sto || 'Priangan Timur'}
-                            onChange={(e) => handleUpdateRecord(row, { datel_sto: e.target.value })}
-                            className="border rounded px-2 py-1 text-[11px] font-semibold bg-indigo-50 text-indigo-800 outline-none"
-                          >
-                            <option value="Tasikmalaya">Tasikmalaya</option>
-                            <option value="Garut">Garut</option>
-                            <option value="Banjar">Banjar</option>
-                            <option value="Ciamis">Ciamis</option>
-                            <option value="Singaparna">Singaparna</option>
-                            <option value="Cirebon">Cirebon</option>
-                            <option value="Indramayu">Indramayu</option>
-                            <option value="Priangan Timur">Priangan Timur</option>
-                          </select>
-                        </td>
+                        <td className="p-3 text-[11px] font-semibold text-indigo-800">{row.datel_sto || 'Priangan Timur'}</td>
                         <td className="p-3 font-extrabold text-[#E4002B]">{formatRupiah(row.nominal)}</td>
                         <td className="p-3">
                           <select
                             value={row.status_caring || 'BELUM_CARING'}
                             onChange={(e) => handleUpdateRecord(row, { status_caring: e.target.value })}
-                            className={`p-1.5 rounded-lg font-bold text-[11px] border outline-none ${
-                              row.status_caring === 'JANJI_BAYAR'
-                                ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                : row.status_caring === 'SUDAH_CARING'
-                                ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                : row.status_caring === 'COMPLAIN_TARIF'
-                                ? 'bg-rose-100 text-rose-800 border-rose-300'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                            }`}
+                            className="p-1.5 rounded-lg font-bold text-[11px] border bg-slate-50 outline-none"
                           >
                             <option value="BELUM_CARING">⏳ Belum Caring</option>
                             <option value="SUDAH_CARING">📞 Sudah Caring</option>
@@ -1012,13 +881,7 @@ export default function ExecutiveCollectionPage() {
                                 status_chat: e.target.value === 'LUNAS_TEMPAT' ? 'LUNAS' : row.status_chat,
                               })
                             }
-                            className={`p-1.5 rounded-lg font-bold text-[11px] border outline-none ${
-                              row.status_visit === 'LUNAS_TEMPAT'
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                : row.status_visit === 'SUDAH_VISIT'
-                                ? 'bg-sky-100 text-sky-800 border-sky-300'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                            }`}
+                            className="p-1.5 rounded-lg font-bold text-[11px] border bg-slate-50 outline-none"
                           >
                             <option value="BELUM_VISIT">🚶 Belum Visit</option>
                             <option value="SUDAH_VISIT">📍 Sudah Visit</option>
@@ -1030,18 +893,13 @@ export default function ExecutiveCollectionPage() {
                             type="text"
                             defaultValue={row.pic_petugas || user.nama_lengkap}
                             onBlur={(e) => {
-                              if (e.target.value !== row.pic_petugas) {
-                                handleUpdateRecord(row, { pic_petugas: e.target.value });
-                              }
+                              if (e.target.value !== row.pic_petugas) handleUpdateRecord(row, { pic_petugas: e.target.value });
                             }}
-                            className="border rounded px-2 py-1 text-[11px] font-bold text-slate-800 w-28 outline-none focus:border-[#E4002B]"
+                            className="border rounded px-2 py-1 text-[11px] font-bold text-slate-800 w-28 outline-none"
                           />
                         </td>
                         <td className="p-3 text-center">
-                          <Link
-                            href="/dashboard/indibiz"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg text-[11px] transition shadow inline-block"
-                          >
+                          <Link href="/dashboard/indibiz" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg text-[11px] shadow inline-block">
                             💬 Hubungi
                           </Link>
                         </td>
@@ -1054,18 +912,14 @@ export default function ExecutiveCollectionPage() {
           </div>
         )}
 
-        {/* ===================================================================== */}
-        {/* SECTION 3: RANKING KINERJA PIC / AM & PORSI KONTRIBUSI                 */}
-        {/* ===================================================================== */}
+        {/* TAB 3: RANKING KINERJA PIC / AM */}
         {activeSection === 'KINERJA_PIC' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-8 bg-white rounded-2xl shadow-sm p-6 border border-slate-100 space-y-4">
               <div className="flex justify-between items-center border-b pb-3">
                 <div>
                   <h3 className="text-base font-black text-slate-800">🏆 Ranking Kinerja PIC / Account Manager</h3>
-                  <p className="text-xs text-slate-500">
-                    Rekapitulasi produktivitas Caring, Visit lapangan, Pelunasan, dan Prospek Deal per PIC
-                  </p>
+                  <p className="text-xs text-slate-500">Rekapitulasi produktivitas Caring, Visit lapangan, Pelunasan, dan Prospek Deal per PIC</p>
                 </div>
                 <span className="bg-indigo-100 text-indigo-800 text-xs font-extrabold px-3 py-1 rounded-full">
                   {picLeaderboard.length} Petugas Aktif
@@ -1088,9 +942,7 @@ export default function ExecutiveCollectionPage() {
                   <tbody>
                     {picLeaderboard.map((p, idx) => (
                       <tr key={idx} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-black">
-                          {idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}
-                        </td>
+                        <td className="p-3 font-black">{idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}</td>
                         <td className="p-3 font-extrabold text-slate-900">{p.pic}</td>
                         <td className="p-3 text-center font-bold text-amber-700">{p.totalCaring}</td>
                         <td className="p-3 text-center font-bold text-sky-700">{p.totalVisit}</td>
@@ -1107,32 +959,21 @@ export default function ExecutiveCollectionPage() {
             <div className="lg:col-span-4 space-y-6">
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 space-y-4">
                 <h4 className="text-sm font-black text-slate-800">⭐ Sorotan Performa Petugas</h4>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5">
                     <p className="text-[10px] font-extrabold text-[#E4002B] uppercase">Top Caring Officer</p>
-                    <p className="text-sm font-black text-slate-900 mt-1 truncate">
-                      {topCaringOfficer ? topCaringOfficer.pic : '-'}
-                    </p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">
-                      {topCaringOfficer ? `${topCaringOfficer.totalCaring} Panggilan/Chat` : '0 Aktivitas'}
-                    </p>
+                    <p className="text-sm font-black text-slate-900 mt-1 truncate">{topCaringOfficer ? topCaringOfficer.pic : '-'}</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">{topCaringOfficer ? `${topCaringOfficer.totalCaring} Aktivitas` : '0 Aktivitas'}</p>
                   </div>
-
                   <div className="bg-sky-50 border border-sky-200 rounded-xl p-3.5">
                     <p className="text-[10px] font-extrabold text-sky-700 uppercase">Top Visit Officer</p>
-                    <p className="text-sm font-black text-slate-900 mt-1 truncate">
-                      {topVisitOfficer ? topVisitOfficer.pic : '-'}
-                    </p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">
-                      {topVisitOfficer ? `${topVisitOfficer.totalVisit} Kunjungan` : '0 Kunjungan'}
-                    </p>
+                    <p className="text-sm font-black text-slate-900 mt-1 truncate">{topVisitOfficer ? topVisitOfficer.pic : '-'}</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">{topVisitOfficer ? `${topVisitOfficer.totalVisit} Kunjungan` : '0 Kunjungan'}</p>
                   </div>
                 </div>
 
                 <div className="pt-2 space-y-3">
                   <h5 className="text-xs font-black text-slate-700">Statistik Efektivitas Collection</h5>
-
                   <div>
                     <div className="flex justify-between text-xs font-bold mb-1">
                       <span className="text-slate-600">Caring Coverage Rate</span>
@@ -1142,7 +983,6 @@ export default function ExecutiveCollectionPage() {
                       <div className="bg-amber-500 h-full rounded-full" style={{ width: `${caringPct}%` }}></div>
                     </div>
                   </div>
-
                   <div>
                     <div className="flex justify-between text-xs font-bold mb-1">
                       <span className="text-slate-600">Visit Coverage Rate</span>
@@ -1152,7 +992,6 @@ export default function ExecutiveCollectionPage() {
                       <div className="bg-sky-500 h-full rounded-full" style={{ width: `${visitPct}%` }}></div>
                     </div>
                   </div>
-
                   <div>
                     <div className="flex justify-between text-xs font-bold mb-1">
                       <span className="text-slate-600">Overall Collection Rate (Target 98%)</span>
@@ -1168,25 +1007,23 @@ export default function ExecutiveCollectionPage() {
           </div>
         )}
 
-        {/* ===================================================================== */}
-        {/* SECTION 4: PUSAT INTEGRASI & SINKRONISASI DATA SEMUA MODUL            */}
-        {/* ===================================================================== */}
+        {/* TAB 4: PUSAT INTEGRASI & SINKRONISASI DATA SEMUA MODUL */}
         {activeSection === 'INTEGRASI_DATA' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-7 bg-white rounded-2xl shadow-sm p-6 border border-slate-100 space-y-5">
               <div className="border-b pb-3">
                 <h3 className="text-base font-black text-slate-800">🔄 Pusat Sinkronisasi & Export Database Terpadu</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Satu pintu untuk mengimpor dataset Excel 44 kolom Telkom ke seluruh modul sekaligus atau mengunduh rekap lengkap 3 sheet.
+                  Satu pintu untuk mengimpor dataset Excel 44 kolom Telkom (atau file backup Multi-Sheet) ke seluruh modul sekaligus.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 flex flex-col justify-between space-y-3">
                   <div>
-                    <span className="text-xs font-black text-emerald-900">📥 1. Import Dataset Excel</span>
+                    <span className="text-xs font-black text-emerald-900">📥 1. Import Dataset Excel / Restore</span>
                     <p className="text-[11px] text-emerald-800 mt-1 leading-relaxed">
-                      Otomatis menyinkronkan data ke modul <b>Indibiz WA</b>, <b>Surat Tagihan PDF</b>, <b>Caring & Visit</b>, dan <b>Grafik BI</b> tanpa duplikat.
+                      Mendukung <b>Excel 44-Kolom Telkom (SND/STO/DATEL/TGK)</b> maupun <b>File Backup Multi-Sheet</b> untuk update status massal.
                     </p>
                   </div>
                   <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl text-center shadow transition">
@@ -1268,4 +1105,3 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
-
