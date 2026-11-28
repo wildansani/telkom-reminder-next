@@ -7,7 +7,9 @@ import { uploadItemsInChunks } from '../../../lib/chunkedSync';
 
 export default function ExecutiveCollectionPage() {
   const [user, setUser] = useState(null);
-  const [records, setRecords] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
+  const [followUpData, setFollowUpData] = useState([]);
+  const [followUpTotal, setFollowUpTotal] = useState(0);
   const [piutangRecords, setPiutangRecords] = useState([]);
   const [penawaranRecords, setPenawaranRecords] = useState([]);
 
@@ -42,16 +44,49 @@ export default function ExecutiveCollectionPage() {
     document.body.appendChild(scriptXlsx);
   }, []);
 
+  useEffect(() => {
+    if (user && activeSection === 'TINDAK_LANJUT') {
+      loadFollowUpData(1);
+      setCurrentPage(1);
+    }
+  }, [user, activeSection, searchTerm, filterDatel, filterCaring, filterVisit, filterPic]);
+
   const loadAllAnalyticsData = async (userId) => {
     try {
-      const [resIndibiz, resPiutang, resPenawaran] = await Promise.all([
-        fetch(`/api/indibiz?userId=${userId}`),
+      // Hanya tarik summary (untuk grafik) dan data piutang/penawaran yang biasanya tidak terlalu besar
+      const [resSummary, resPiutang, resPenawaran] = await Promise.all([
+        fetch(`/api/indibiz?userId=${userId}&mode=summary`),
         fetch(`/api/piutang?userId=${userId}`),
         fetch(`/api/penawaran?userId=${userId}`),
       ]);
-      if (resIndibiz.ok) setRecords((await resIndibiz.json()).data || []);
+      if (resSummary.ok) setSummaryData(await resSummary.json());
       if (resPiutang.ok) setPiutangRecords((await resPiutang.json()).data || []);
       if (resPenawaran.ok) setPenawaranRecords((await resPenawaran.json()).data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Fungsi khusus untuk menarik data tabel Tindak Lanjut (Paginated)
+  const loadFollowUpData = async (page = 1) => {
+    try {
+      const query = new URLSearchParams({
+        userId: user.id,
+        mode: 'table',
+        page,
+        limit: 50,
+        search: searchTerm,
+        datel: filterDatel,
+        caring: filterCaring,
+        visit: filterVisit,
+        pic: filterPic
+      });
+      const res = await fetch(`/api/indibiz?${query.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setFollowUpData(json.data || []);
+        setFollowUpTotal(json.total || 0);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -295,31 +330,20 @@ export default function ExecutiveCollectionPage() {
 
   if (!user) return null;
 
-  const totalPelanggan = records.length;
-  const lunasList = records.filter((r) => r.status_chat === 'LUNAS' || r.status_visit === 'LUNAS_TEMPAT');
-  const unpaidList = records.filter((r) => r.status_chat !== 'LUNAS' && r.status_visit !== 'LUNAS_TEMPAT');
+  const totalPelanggan = summaryData?.summary?.total || 0;
+  const lunasCount = summaryData?.summary?.lunas || 0;
+  const unpaidCount = summaryData?.summary?.unpaid || 0;
+  const totalOutstanding = summaryData?.summary?.total_outstanding || 0;
+  const totalLunasNominal = summaryData?.summary?.total_lunas_nominal || 0;
+  const sudahCaringCount = summaryData?.summary?.sudah_caring || 0;
+  const belumCaringCount = Math.max(0, totalPelanggan - sudahCaringCount);
+  const sudahVisitCount = summaryData?.summary?.sudah_visit || 0;
+  const belumVisitCount = Math.max(0, totalPelanggan - sudahVisitCount);
 
-  const totalOutstanding = unpaidList.reduce((acc, r) => acc + (Number(r.nominal) || 0), 0);
-  const totalLunasNominal = lunasList.reduce((acc, r) => acc + (Number(r.nominal) || 0), 0);
-
-  const sudahCaringList = records.filter(
-    (r) =>
-      (r.status_caring && r.status_caring !== 'BELUM_CARING') ||
-      r.status_chat === 'SUDAH_CHAT' ||
-      r.status_chat === 'LUNAS'
-  );
-  const belumCaringCount = Math.max(0, totalPelanggan - sudahCaringList.length);
-
-  const sudahVisitList = records.filter((r) => r.status_visit && r.status_visit !== 'BELUM_VISIT');
-  const belumVisitCount = Math.max(0, totalPelanggan - sudahVisitList.length);
-
-  const janjiBayarList = records.filter((r) => r.status_caring === 'JANJI_BAYAR');
-  const tunggakan2BlnList = records.filter((r) => r.umur_tunggakan === '> 2 Bulan');
-
-  const caringPct = totalPelanggan > 0 ? ((sudahCaringList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
-  const visitPct = totalPelanggan > 0 ? ((sudahVisitList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
-  const lunasPct = totalPelanggan > 0 ? ((lunasList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
-  const unpaidPct = totalPelanggan > 0 ? ((unpaidList.length / totalPelanggan) * 100).toFixed(1) : '0.0';
+  const caringPct = totalPelanggan > 0 ? ((sudahCaringCount / totalPelanggan) * 100).toFixed(1) : '0.0';
+  const visitPct = totalPelanggan > 0 ? ((sudahVisitCount / totalPelanggan) * 100).toFixed(1) : '0.0';
+  const lunasPct = totalPelanggan > 0 ? ((lunasCount / totalPelanggan) * 100).toFixed(1) : '0.0';
+  const unpaidPct = totalPelanggan > 0 ? ((unpaidCount / totalPelanggan) * 100).toFixed(1) : '0.0';
 
   const donutSegments = [
     { label: 'Sudah Bayar (Lunas)', count: lunasList.length, color: '#10b981' },
@@ -1144,6 +1168,7 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
+
 
 
 

@@ -36,6 +36,14 @@ async function ensureIndibizTable() {
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
+  const mode = searchParams.get('mode') || 'default';
+  const page = parseInt(searchParams.get('page') || '1', 10);
+  const limit = parseInt(searchParams.get('limit') || '50', 10);
+  const search = searchParams.get('search') || '';
+  const filterDatel = searchParams.get('datel') || 'ALL';
+  const filterCaring = searchParams.get('caring') || 'ALL';
+  const filterVisit = searchParams.get('visit') || 'ALL';
+  const filterPic = searchParams.get('pic') || 'ALL';
 
   if (!userId) {
     return NextResponse.json({ message: 'User ID diperlukan' }, { status: 400 });
@@ -43,12 +51,59 @@ export async function GET(request) {
 
   try {
     await ensureIndibizTable();
-    const data = await sql`
+
+    if (mode === 'summary') {
+      // Ambil Data Agregat (Sangat Cepat) untuk Grafik & KPI
+      const summaryRes = await sql`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE status_chat = 'LUNAS' OR status_visit = 'LUNAS_TEMPAT') as lunas,
+          COUNT(*) FILTER (WHERE status_chat != 'LUNAS' AND status_visit != 'LUNAS_TEMPAT') as unpaid,
+          COALESCE(SUM(nominal) FILTER (WHERE status_chat != 'LUNAS' AND status_visit != 'LUNAS_TEMPAT'), 0) as total_outstanding,
+          COALESCE(SUM(nominal) FILTER (WHERE status_chat = 'LUNAS' OR status_visit = 'LUNAS_TEMPAT'), 0) as total_lunas_nominal,
+          COUNT(*) FILTER (WHERE status_caring != 'BELUM_CARING' OR status_chat = 'SUDAH_CHAT' OR status_chat = 'LUNAS') as sudah_caring,
+          COUNT(*) FILTER (WHERE status_visit != 'BELUM_VISIT') as sudah_visit
+        FROM indibiz_billing WHERE user_id = ${Number(userId)}
+      `;
+
+      const datelRes = await sql`
+        SELECT 
+          datel_sto,
+          COUNT(*) as count,
+          COUNT(*) FILTER (WHERE status_caring != 'BELUM_CARING' OR status_chat IN ('SUDAH_CHAT', 'LUNAS')) as caring,
+          COUNT(*) FILTER (WHERE status_caring = 'BELUM_CARING' AND status_chat NOT IN ('SUDAH_CHAT', 'LUNAS')) as antrean,
+          COALESCE(SUM(nominal) FILTER (WHERE status_chat != 'LUNAS' AND status_visit != 'LUNAS_TEMPAT'), 0) as outstanding
+        FROM indibiz_billing WHERE user_id = ${Number(userId)}
+        GROUP BY datel_sto
+      `;
+
+      return NextResponse.json({ summary: summaryRes[0], datelStats: datelRes }, { status: 200 });
+    }
+
+    // Mode Paginated Table (Untuk Tindak Lanjut & Indibiz Master)
+    const offset = (page - 1) * limit;
+    let whereClause = `user_id = ${Number(userId)}`;
+    
+    if (search) {
+      whereClause += ` AND (nama_pelanggan ILIKE '%${search}%' OR nomor_layanan ILIKE '%${search}%' OR pic_petugas ILIKE '%${search}%')`;
+    }
+    if (filterDatel !== 'ALL') whereClause += ` AND datel_sto = '${filterDatel}'`;
+    if (filterCaring !== 'ALL') whereClause += ` AND status_caring = '${filterCaring}'`;
+    if (filterVisit !== 'ALL') whereClause += ` AND status_visit = '${filterVisit}'`;
+    if (filterPic !== 'ALL') whereClause += ` AND pic_petugas = '${filterPic}'`;
+
+    const data = await sql.query(`
       SELECT * FROM indibiz_billing
-      WHERE user_id = ${Number(userId)}
+      WHERE ${whereClause}
       ORDER BY nama_pelanggan ASC
-    `;
-    return NextResponse.json({ data }, { status: 200 });
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    const countRes = await sql.query(`
+      SELECT COUNT(*) as total FROM indibiz_billing WHERE ${whereClause}
+    `);
+
+    return NextResponse.json({ data, total: parseInt(countRes[0].total, 10) }, { status: 200 });
   } catch (error) {
     console.error('GET /api/indibiz error:', error);
     return NextResponse.json({ message: 'Error fetching data', error: error.message }, { status: 500 });
@@ -231,4 +286,5 @@ export async function DELETE(request) {
     return NextResponse.json({ message: error.message || 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
+
 
