@@ -32,6 +32,7 @@ export default function IndibizBillingPage() {
 
   // State Search & Filter Tabel
   const [searchTerm, setSearchTerm] = useState('');
+  const [dropdownSearch, setDropdownSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const router = useRouter();
@@ -614,6 +615,7 @@ Billing Telkom Priangan Timur`;
     </div>
   );
 }
+
 
 
 

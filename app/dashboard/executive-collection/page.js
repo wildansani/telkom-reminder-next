@@ -15,6 +15,8 @@ export default function ExecutiveCollectionPage() {
   const [activeSection, setActiveSection] = useState('RINGKASAN'); // 'RINGKASAN', 'TINDAK_LANJUT', 'KINERJA_PIC', 'INTEGRASI_DATA'
   const [privacyMask, setPrivacyMask] = useState(false);
   const [syncProgress, setSyncProgress] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   // Filter Tindak Lanjut
   const [searchTerm, setSearchTerm] = useState('');
@@ -413,8 +415,8 @@ export default function ExecutiveCollectionPage() {
 
   const filteredFollowUp = records.filter((r) => {
     const matchesSearch =
-      r.nama_pelanggan.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.nomor_layanan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.nama_pelanggan || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.nomor_layanan || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (r.pic_petugas || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDatel = filterDatel === 'ALL' || (r.datel_sto || 'Priangan Timur') === filterDatel;
     const matchesCaring = filterCaring === 'ALL' || (r.status_caring || 'BELUM_CARING') === filterCaring;
@@ -422,6 +424,9 @@ export default function ExecutiveCollectionPage() {
     const matchesPic = filterPic === 'ALL' || (r.pic_petugas || user.nama_lengkap) === filterPic;
     return matchesSearch && matchesDatel && matchesCaring && matchesVisit && matchesPic;
   });
+
+  const totalPages = Math.ceil(filteredFollowUp.length / itemsPerPage);
+  const paginatedFollowUp = filteredFollowUp.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const exportAnalyticsExcel = () => {
     if (!window.XLSX) return;
@@ -915,6 +920,34 @@ export default function ExecutiveCollectionPage() {
                 </tbody>
               </table>
             </div>
+            
+            {/* UI Pagination */}
+            {filteredFollowUp.length > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center mt-4 border-t pt-4 gap-3">
+                <span className="text-xs text-slate-600">
+                  Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredFollowUp.length)} dari {filteredFollowUp.length} data
+                </span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs font-bold bg-slate-200 text-slate-700 rounded-lg disabled:opacity-50 hover:bg-slate-300 transition"
+                  >
+                    ← Sebelumnya
+                  </button>
+                  <span className="px-3 py-1.5 text-xs font-bold text-slate-800 bg-slate-100 rounded-lg">
+                    Hal {currentPage} / {totalPages}
+                  </span>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="px-3 py-1.5 text-xs font-bold bg-slate-200 text-slate-700 rounded-lg disabled:opacity-50 hover:bg-slate-300 transition"
+                  >
+                    Selanjutnya →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1111,5 +1144,6 @@ export default function ExecutiveCollectionPage() {
     </div>
   );
 }
+
 
 
