@@ -99,9 +99,9 @@ export default function SuratTagihanPage() {
 
   const fetchCustomers = async (userId) => {
     try {
-      const res = await fetch(`/api/indibiz?userId=${userId}`);
+      const res = await fetch(`/api/indibiz?userId=${userId}&mode=table&limit=10000`);
       if (res.ok) {
-        const result = await res.json();
+        const json = await res.json(); const result = json.data || json;
         setCustomers(result.data || []);
       }
     } catch (e) {
@@ -812,6 +812,7 @@ export default function SuratTagihanPage() {
     </div>
   );
 }
+
 
 
 

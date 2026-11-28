@@ -56,7 +56,7 @@ export default function IndibizBillingPage() {
     const res = await fetch(`/api/indibiz?userId=${userId}`);
     const result = await res.json();
     if (res.ok) {
-      setCustomers(result.data);
+      setCustomers(result.data || []);
     }
   };
 
@@ -615,6 +615,7 @@ Billing Telkom Priangan Timur`;
     </div>
   );
 }
+
 
 
 

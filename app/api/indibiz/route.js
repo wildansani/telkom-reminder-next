@@ -38,7 +38,7 @@ export async function GET(request) {
   const userId = searchParams.get('userId');
   const mode = searchParams.get('mode') || 'default';
   const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || '50', 10);
+  const limit = parseInt(searchParams.get('limit') || (mode === 'default' ? '10000' : '50'), 10);
   const search = searchParams.get('search') || '';
   const filterDatel = searchParams.get('datel') || 'ALL';
   const filterCaring = searchParams.get('caring') || 'ALL';
@@ -286,5 +286,6 @@ export async function DELETE(request) {
     return NextResponse.json({ message: error.message || 'Error deleting data', error: error.message }, { status: 500 });
   }
 }
+
 
 
